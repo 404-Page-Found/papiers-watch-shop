@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Lumen Watch Co. | Shop Simulator</title>
+<title>Papier's Watch Sale | Shop Simulator</title>
 <script>
   /* Apply saved theme before first paint to avoid a flash. */
   (function () {
@@ -340,6 +340,10 @@ main.view { padding-top: 1.5rem; padding-bottom: 3rem; }
 .product-media .watch { width: min(120px, 70%); }
 .watch.sm { width: 52px; }
 .watch.big { width: min(220px, 70%); }
+.photo { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 14px; transition: transform .5s cubic-bezier(.2, .8, .2, 1); }
+.product:hover .photo { transform: scale(1.04); }
+.photo.big { aspect-ratio: 1 / 1; max-width: 420px; }
+.photo.sm { width: 52px; height: 52px; aspect-ratio: auto; border-radius: 10px; }
 
 /* ==========================================================================
    PRODUCT DETAIL
@@ -455,9 +459,9 @@ main.view { padding-top: 1.5rem; padding-bottom: 3rem; }
 
 <header class="site-header">
   <div class="wrap header-inner">
-    <button type="button" class="brand" data-action="go" data-view="shop" aria-label="Lumen Watch Co. home">
+    <button type="button" class="brand" data-action="go" data-view="shop" aria-label="Papier's Watch Sale home">
       <span class="brand-icon" id="brand-icon" aria-hidden="true"></span>
-      <span>Lumen Watch Co.</span>
+      <span>Papier's Watch Sale</span>
     </button>
     <nav class="nav" aria-label="Main">
       <button type="button" class="btn btn-ghost btn-sm" id="nav-shop" data-action="go" data-view="shop">Shop</button>
@@ -482,36 +486,28 @@ main.view { padding-top: 1.5rem; padding-bottom: 3rem; }
   const STORE_KEY = 'ows.state.v1';
   const THEME_KEY = 'ows.theme';
   const MAX_QTY = 10;
-  const STYLES = ['All', 'Dress', 'Sport', 'Diver', 'Pilot', 'Smart'];
+  const STYLES = ['All', 'Dress', 'Sport', 'Diver'];
   const SORTS = { featured: 'Featured', 'price-asc': 'Price: low to high', 'price-desc': 'Price: high to low' };
   const COUNTRIES = [['US', 'United States'], ['CA', 'Canada'], ['GB', 'United Kingdom'], ['AU', 'Australia']];
   const CHECK_ICON = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path pathLength="1" d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 
   const PRODUCTS = [
-    { id: 'halden-36', name: 'Halden Classic 36', style: 'Dress', price: 199,
-      case: '#d9b26c', face: '#f7f2e6', mark: '#3b2d1b', strap: '#6b4a2b', accent: '#b8862f', hands: [300, 90, 200],
-      desc: 'A slim 36 mm dress watch with a warm gold-tone case and a clean cream dial.',
-      specs: ['36 mm case', 'Quartz movement', '30 m water resistance'] },
-    { id: 'marlow-heritage', name: 'Marlow Heritage', style: 'Dress', price: 579,
-      case: '#cfd3d8', face: '#fbfbf7', mark: '#1d1d1d', strap: '#1a1a1a', accent: '#3a57d1', hands: [200, 120, 90],
-      desc: 'Brushed silver case, domed glass and a black leather strap for formal occasions.',
+    { id: 'classic-montre', name: 'Classic Montre', style: 'Dress', price: 68000, was: 136000, img: 'images/classic-montre.png',
+      case: '#c9ccd1', face: '#f5f1e4', mark: '#1d1d1d', strap: '#2a2a2a', accent: '#8c9299', hands: [300, 90, 200],
+      desc: 'A timeless round dress watch with a polished steel case and a sunburst silver dial.',
+      specs: ['38 mm case', 'Automatic movement', '30 m water resistance'] },
+    { id: 'limited-gold', name: 'Limited Edition Gold', style: 'Dress', price: 142500, was: 285000, img: 'images/limited-gold.png',
+      case: '#d9b26c', face: '#2a2116', mark: '#f3d98b', strap: '#6b4a2b', accent: '#e0b251', hands: [200, 120, 90],
+      desc: 'A numbered gold-plated case with a hand-guilloché dial, made in a run of only 100.',
       specs: ['40 mm case', 'Automatic movement', '50 m water resistance'] },
-    { id: 'vantor-300', name: 'Vantor Dive 300', style: 'Diver', price: 389,
-      case: '#2d5d7b', face: '#10334a', mark: '#f3f6f8', strap: '#1d3c52', accent: '#f2a541', hands: [45, 180, 30],
-      desc: 'A rotating bezel and luminous markers built for depth, rated to 300 metres.',
-      specs: ['42 mm case', 'Automatic movement', '300 m water resistance'] },
-    { id: 'kestrel-gmt', name: 'Kestrel Pilot GMT', style: 'Pilot', price: 459,
-      case: '#8a939e', face: '#1b2230', mark: '#f4f4f4', strap: '#3a3f4a', accent: '#ff7a59', hands: [120, 300, 250],
-      desc: 'A second time zone complication and a high-contrast dial for long-haul navigation.',
-      specs: ['41 mm case', 'Quartz movement', '100 m water resistance'] },
-    { id: 'northwave-run', name: 'Northwave Runner', style: 'Sport', price: 129,
-      case: '#e0573f', face: '#f3f3f3', mark: '#1c1c1c', strap: '#222222', accent: '#e0573f', hands: [10, 60, 150],
-      desc: 'A lightweight resin case, a lap-timer bezel and a grippy strap for training days.',
-      specs: ['40 mm case', 'Quartz movement', '100 m water resistance'] },
-    { id: 'orbis-one', name: 'Orbis Smart One', style: 'Smart', price: 299,
-      case: '#2b2e36', face: '#0d0f14', mark: '#e8ecf4', strap: '#2b2e36', accent: '#4fd1c5', hands: [270, 90, 0],
-      desc: 'Heart-rate, sleep and step tracking on an always-on display with a week of battery.',
-      specs: ['44 mm case', '7-day battery', '5 ATM water resistance'] }
+    { id: 'great-green', name: 'The Great Green', style: 'Diver', price: 45000, was: 90000, img: 'images/great-green.png',
+      case: '#2f6b4f', face: '#0f2a20', mark: '#e7f4ec', strap: '#1d4a37', accent: '#5fd39a', hands: [45, 180, 30],
+      desc: 'A deep green dial and bezel with a 500 m rating for the serious diver.',
+      specs: ['44 mm case', 'Automatic movement', '500 m water resistance'] },
+    { id: 'daytona', name: 'Daytona', style: 'Sport', price: 32000, was: 64000, img: 'images/daytona.png',
+      case: '#8a8f98', face: '#111214', mark: '#f4f4f4', strap: '#1c1c1c', accent: '#e0573f', hands: [120, 300, 250],
+      desc: 'A racing-inspired chronograph with a tachymeter bezel and bold red accents.',
+      specs: ['40 mm case', 'Automatic chronograph', '100 m water resistance'] }
   ];
 
   /* Validation rules: [test, message]. Tests receive the raw field value. */
@@ -598,6 +594,10 @@ main.view { padding-top: 1.5rem; padding-bottom: 3rem; }
   const incartText = q => (q ? `${q} in your cart` : 'Not in your cart yet');
 
   /* ---------- Icons: generated SVG watch faces ---------- */
+  function watchMedia(p, size = '') {
+    return p.img ? `<img class="photo ${size}" src="${p.img}" alt="${esc(p.name)}" loading="lazy">` : watchSVG(p, size);
+  }
+
   function watchSVG(p, size = '') {
     const ticks = Array.from({ length: 12 }, (_, i) => {
       const major = i % 3 === 0;
@@ -672,7 +672,7 @@ main.view { padding-top: 1.5rem; padding-bottom: 3rem; }
     return `
     <section class="page-head">
       <h1 tabindex="-1">Watches</h1>
-      <p class="muted">Six fictional brands in one simulated shop. Nothing here is sold.</p>
+      <p class="muted">Four fictional watches in one simulated sale. Nothing here is sold.</p>
     </section>
     <div class="toolbar">
       <div class="seg" role="group" aria-label="Filter by style" style="--count:${STYLES.length};--idx:${STYLES.indexOf(state.filter)}">
@@ -692,13 +692,13 @@ main.view { padding-top: 1.5rem; padding-bottom: 3rem; }
   function gridHTML() {
     return filtered().map((p, i) => `
       <article class="card product" style="--i:${i}">
-        <button type="button" class="product-media" data-action="open" data-id="${p.id}" aria-label="View details for ${esc(p.name)}">${watchSVG(p)}</button>
+        <button type="button" class="product-media" data-action="open" data-id="${p.id}" aria-label="View details for ${esc(p.name)}">${watchMedia(p)}</button>
         <div class="product-body">
           <span class="tag">${p.style}</span>
           <h2 class="product-name">${esc(p.name)}</h2>
           <p class="muted small">${esc(p.desc)}</p>
           <div class="product-foot">
-            <span class="price">${money(p.price)}</span>
+            <span class="price">${p.was ? `<s class="muted small">${money(p.was)}</s> ` : ''}${money(p.price)}</span>
             <button type="button" class="btn btn-primary btn-sm" data-action="add" data-id="${p.id}">Add to cart</button>
           </div>
         </div>
@@ -726,11 +726,11 @@ main.view { padding-top: 1.5rem; padding-bottom: 3rem; }
     return `
     <button type="button" class="btn btn-ghost btn-sm back" data-action="go" data-view="shop">&larr; Back to shop</button>
     <article class="card detail">
-      <div class="detail-media">${watchSVG(p, 'big')}</div>
+      <div class="detail-media">${watchMedia(p, 'big')}</div>
       <div class="detail-info">
         <span class="tag">${p.style}</span>
         <h1 tabindex="-1">${esc(p.name)}</h1>
-        <p class="price-lg">${money(p.price)}</p>
+        <p class="price-lg">${p.was ? `<s class="muted small">${money(p.was)}</s> ` : ''}${money(p.price)}</p>
         <p>${esc(p.desc)}</p>
         <ul class="specs">${p.specs.map(s => `<li>${esc(s)}</li>`).join('')}</ul>
         <div class="detail-actions">
@@ -758,7 +758,7 @@ main.view { padding-top: 1.5rem; padding-bottom: 3rem; }
       <ul class="cart-list" aria-label="Cart items">
         ${items.map(({ p, qty, line }) => `
         <li class="card cart-row" data-row="${p.id}">
-          <div class="cart-thumb">${watchSVG(p, 'sm')}</div>
+          <div class="cart-thumb">${watchMedia(p, 'sm')}</div>
           <div class="cart-info">
             <h2 class="cart-name">${esc(p.name)}</h2>
             <p class="muted small">${money(p.price)} each</p>
