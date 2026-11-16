@@ -280,7 +280,57 @@ h1[tabindex="-1"]:focus, main:focus { outline: none; }
 .seg button:hover, .seg button[aria-pressed="true"] { color: var(--text); }
 .seg button[aria-pressed="true"] { font-weight: 700; }
 .select-wrap { display: flex; align-items: center; gap: .6rem; font-size: .95rem; }
-.select-wrap .control { width: auto; min-width: 210px; }
+.select-wrap .dd-root { width: auto; min-width: 210px; }
+
+/* ==========================================================================
+   SPRING DROPDOWN
+   Surfaces use the site's neumorphic tokens, so it matches the inputs and
+   toggles. Motion presets from the Spring Dropdown spec are scoped to .dd-root.
+   The menu and highlight run on springs (--spring-*), rows stagger in, and the
+   picked value rolls into the trigger.
+   ========================================================================== */
+.dd-root {
+  --spring-soft: 260 24;
+  --spring-fade: 420 32;
+  --spring-lead: 620 36;
+  --spring-trail: 190 19;
+  position: relative; width: 100%;
+}
+.dd-root[data-open="true"] { z-index: 20; }
+.dd-trigger {
+  width: 100%; min-height: 44px; display: flex; align-items: center; gap: .6rem;
+  padding: .7rem .85rem .7rem 1rem; border: 1px solid var(--border); border-radius: 12px;
+  background: var(--bg); color: var(--text); box-shadow: var(--shadow-inset);
+  font: inherit; text-align: left; cursor: pointer;
+  -webkit-tap-highlight-color: transparent; transition: transform .15s ease, box-shadow .2s ease;
+}
+.dd-trigger:active { transform: scale(.975); }
+.dd-trigger:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.dd-val { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; font-weight: 500; }
+.dd-chev { flex: none; width: 20px; height: 20px; color: var(--text-muted); transition: transform .35s cubic-bezier(.3, 1.25, .4, 1); }
+.dd-root[data-open="true"] .dd-chev { transform: rotate(180deg); }
+.dd-menu {
+  position: absolute; left: 0; right: 0; top: calc(100% + 6px); height: 0; padding: 6px;
+  border: 1px solid var(--border); border-radius: 18px;
+  background: var(--bg); box-shadow: var(--shadow-raised-sm); overflow: hidden;
+  transform-origin: 50% 0; visibility: hidden; opacity: 0; pointer-events: none;
+}
+.dd-opt {
+  position: relative; z-index: 1; display: flex; align-items: center; gap: .6rem;
+  height: 44px; padding: 0 .6rem 0 .75rem; border-radius: 12px;
+  color: var(--text); cursor: pointer; opacity: 0; transform: translateY(-8px);
+  transition: opacity .2s ease, transform .3s cubic-bezier(.3, 1.25, .4, 1);
+}
+.dd-opt:focus { outline: none; }
+.dd-root[data-open="true"] .dd-opt { opacity: 1; transform: none; }
+.dd-opt span { flex: 1; font-weight: 500; white-space: nowrap; }
+.dd-tick { flex: none; width: 18px; height: 18px; color: var(--accent); }
+.dd-tick path { stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset .35s ease; }
+.dd-opt[aria-selected="true"] .dd-tick path { stroke-dashoffset: 0; }
+.dd-hl {
+  position: absolute; left: 6px; right: 6px; top: 0; height: 0; border-radius: 12px;
+  background: var(--bg); box-shadow: var(--shadow-inset-sm); opacity: 0; pointer-events: none;
+}
 
 /* ==========================================================================
    PAGE HEADINGS, VIEWS, SPLIT LAYOUT
@@ -309,7 +359,7 @@ main.view { padding-top: 1.5rem; padding-bottom: 3rem; }
    Card hover: lift and deepen the shadow. Press: settle slightly.
    Image: inset well with a small tilt on hover.
    ========================================================================== */
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1.25rem; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1.25rem; margin-top: .75rem; }
 .product {
   display: flex; flex-direction: column; gap: .9rem; padding: 1rem;
   transition: transform .35s cubic-bezier(.2, .8, .2, 1), box-shadow .35s ease;
@@ -679,11 +729,9 @@ main.view { padding-top: 1.5rem; padding-bottom: 3rem; }
         <span class="seg-thumb" aria-hidden="true"></span>
         ${STYLES.map(s => `<button type="button" data-action="filter" data-value="${s}" aria-pressed="${s === state.filter}">${s}</button>`).join('')}
       </div>
-      <label class="select-wrap"><span>Sort by</span>
-        <select id="sort" class="control">
-          ${Object.entries(SORTS).map(([v, l]) => `<option value="${v}" ${v === state.sort ? 'selected' : ''}>${l}</option>`).join('')}
-        </select>
-      </label>
+      <div class="select-wrap"><span id="sort-label">Sort by</span>
+        ${dropdownHTML({ id: 'sort', name: 'sort', labelId: 'sort-label', options: Object.entries(SORTS), value: state.sort })}
+      </div>
     </div>
     <p class="muted small" id="count" aria-live="polite">${countText()}</p>
     <div class="grid" id="grid">${gridHTML()}</div>`;
@@ -782,6 +830,178 @@ main.view { padding-top: 1.5rem; padding-bottom: 3rem; }
     </div>`;
   }
 
+  /* ---------- Spring dropdown ----------
+     Markup is a hidden input (keeps the value, name and change event for the
+     existing handlers) plus a trigger and listbox. Keys: Enter or Space opens,
+     arrows move, Enter picks, Escape closes. */
+  const DD_PAD = 6, DD_ROW = 44;
+  const DD_REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const DD_STATE = new WeakMap();
+  const DD_CHEV = '<svg class="dd-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+  const DD_TICK = '<svg class="dd-tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path pathLength="1" d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+
+  function dropdownHTML({ id, name, group = '', labelId, errId = '', options, value }) {
+    const sel = Math.max(0, options.findIndex(([v]) => v === value));
+    return `
+    <div class="dd-root" data-open="false">
+      <input type="hidden" id="${id}" name="${name}"${group ? ` data-group="${group}"` : ''} value="${esc(options[sel][0])}">
+      <button type="button" class="dd-trigger" id="${id}-btn" aria-haspopup="listbox" aria-expanded="false"
+        aria-labelledby="${labelId} ${id}-btn"${errId ? ` aria-describedby="${errId}"` : ''}>
+        <span class="dd-val">${esc(options[sel][1])}</span>${DD_CHEV}
+      </button>
+      <div class="dd-menu" id="${id}-menu" role="listbox" aria-labelledby="${labelId}">
+        <i class="dd-hl" aria-hidden="true"></i>
+        ${options.map(([v, l], i) => `<div class="dd-opt" id="${id}-opt-${i}" role="option" tabindex="-1" data-i="${i}" data-v="${esc(v)}" aria-selected="${i === sel}" style="transition-delay:${i * 45}ms"><span>${esc(l)}</span>${DD_TICK}</div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  const ddTokens = (root, name) => getComputedStyle(root).getPropertyValue(name).trim().split(/\s+/).map(Number);
+  function ddTune(s, [k, c]) { s.k = k; s.c = DD_REDUCE ? 2 * Math.sqrt(k) : c; }
+  function ddSpring(preset) { const s = { x: 0, v: 0, t: 0, k: 0, c: 0 }; ddTune(s, preset); return s; }
+  const ddStep = (s, dt) => { s.v += (-s.k * (s.x - s.t) - s.c * s.v) * dt; s.x += s.v * dt; };
+  const ddSettled = s => Math.abs(s.x - s.t) < 5e-4 && Math.abs(s.v) < 5e-3;
+
+  function ddOf(root) {
+    let d = DD_STATE.get(root);
+    if (d) return d;
+    const opts = root.querySelectorAll('.dd-opt');
+    const preset = {
+      soft: ddTokens(root, '--spring-soft'), fade: ddTokens(root, '--spring-fade'),
+      lead: ddTokens(root, '--spring-lead'), trail: ddTokens(root, '--spring-trail')
+    };
+    d = {
+      root, n: opts.length, mh: DD_PAD * 2 + DD_ROW * opts.length, preset,
+      sel: Math.max(0, [...opts].findIndex(o => o.getAttribute('aria-selected') === 'true')),
+      hi: -1, open: false, raf: 0, last: 0, swallow: false,
+      trigger: root.querySelector('.dd-trigger'), hidden: root.querySelector('input[type="hidden"]'),
+      val: root.querySelector('.dd-val'), menu: root.querySelector('.dd-menu'), hl: root.querySelector('.dd-hl'),
+      sMenu: ddSpring(preset.soft), sFade: ddSpring(preset.fade), sT: ddSpring(preset.trail), sB: ddSpring(preset.trail)
+    };
+    DD_STATE.set(root, d);
+    return d;
+  }
+
+  function ddRender(d) {
+    const p = Math.max(0, d.sMenu.x);
+    const o = Math.min(1, Math.max(0, d.sFade.x));
+    const ht = Math.max(DD_PAD, Math.min(d.sT.x, d.sB.x - 16, d.mh - DD_PAD - 16));
+    const hb = Math.min(d.mh - DD_PAD, Math.max(d.sB.x, ht + 16));
+    d.menu.style.height = (Math.min(p, 1.06) * d.mh).toFixed(2) + 'px';
+    d.menu.style.opacity = o.toFixed(3);
+    d.menu.style.visibility = d.open || p > 0.01 ? 'visible' : 'hidden';
+    d.menu.style.pointerEvents = d.open ? 'auto' : 'none';
+    d.hl.style.opacity = o.toFixed(3);
+    d.hl.style.height = (hb - ht).toFixed(2) + 'px';
+    d.hl.style.transform = `translateY(${ht.toFixed(2)}px)`;
+  }
+
+  function ddKick(d) {
+    if (d.raf) return;
+    d.last = performance.now();
+    const springs = [d.sMenu, d.sFade, d.sT, d.sB];
+    const frame = now => {
+      const dt = Math.min((now - d.last) / 1000, 1 / 30);
+      d.last = now;
+      for (let i = 0; i < 4; i++) springs.forEach(s => ddStep(s, dt / 4));
+      ddRender(d);
+      d.raf = springs.every(ddSettled) ? 0 : requestAnimationFrame(frame);
+    };
+    d.raf = requestAnimationFrame(frame);
+  }
+
+  function ddHover(d, i, snap) {
+    if (i === d.hi || i < 0 || i >= d.n) return;
+    const top = DD_PAD + i * DD_ROW;
+    if (snap || d.hi < 0) {
+      d.sT.x = d.sT.t = top; d.sB.x = d.sB.t = top + DD_ROW; d.sT.v = d.sB.v = 0;
+    } else {
+      const down = i > d.hi;
+      ddTune(down ? d.sB : d.sT, d.preset.lead);
+      ddTune(down ? d.sT : d.sB, d.preset.trail);
+    }
+    d.sT.t = top; d.sB.t = top + DD_ROW;
+    d.hi = i;
+    d.trigger.setAttribute('aria-activedescendant', `${d.hidden.id}-opt-${i}`);
+    ddKick(d);
+  }
+
+  function ddSetOpen(d, open) {
+    if (d.open === open) return;
+    d.open = open;
+    d.root.dataset.open = String(open);
+    d.trigger.setAttribute('aria-expanded', String(open));
+    d.sMenu.t = open ? 1 : 0;
+    d.sFade.t = open ? 1 : 0;
+    if (open) ddHover(d, d.sel, true);
+    else { d.hi = -1; d.trigger.removeAttribute('aria-activedescendant'); }
+    ddKick(d);
+    ddRender(d);
+  }
+
+  function ddSelect(d, i) {
+    const opts = d.root.querySelectorAll('.dd-opt');
+    const opt = opts[i];
+    const changed = d.hidden.value !== opt.dataset.v;
+    d.sel = i;
+    opts.forEach((o, j) => o.setAttribute('aria-selected', String(j === i)));
+    d.val.textContent = opt.querySelector('span').textContent;
+    if (changed) {
+      d.hidden.value = opt.dataset.v;
+      d.hidden.dispatchEvent(new Event('change', { bubbles: true }));
+      if (!DD_REDUCE) d.val.animate(
+        [{ transform: 'translateY(60%)', opacity: 0 }, { transform: 'none', opacity: 1 }],
+        { duration: 320, easing: 'cubic-bezier(.2, 1.2, .4, 1)' });
+    }
+    ddSetOpen(d, false);
+    d.trigger.focus();
+  }
+
+  document.addEventListener('click', e => {
+    const trig = e.target.closest('.dd-trigger');
+    if (trig) { const d = ddOf(trig.closest('.dd-root')); ddSetOpen(d, !d.open); return; }
+    const opt = e.target.closest('.dd-opt');
+    if (opt) ddSelect(ddOf(opt.closest('.dd-root')), +opt.dataset.i);
+  });
+  document.addEventListener('pointermove', e => {
+    const opt = e.target.closest('.dd-opt');
+    if (!opt) return;
+    const d = ddOf(opt.closest('.dd-root'));
+    if (d.open) ddHover(d, +opt.dataset.i);
+  });
+  document.addEventListener('pointerdown', e => {
+    document.querySelectorAll('.dd-root[data-open="true"]').forEach(r => {
+      if (!r.contains(e.target)) ddSetOpen(ddOf(r), false);
+    });
+  });
+  document.addEventListener('focusout', e => {
+    const root = e.target.closest && e.target.closest('.dd-root');
+    if (root && !root.contains(e.relatedTarget)) ddSetOpen(ddOf(root), false);
+  });
+  document.addEventListener('keydown', e => {
+    const trig = e.target.closest && e.target.closest('.dd-trigger');
+    if (!trig) return;
+    const d = ddOf(trig.closest('.dd-root'));
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!d.open) ddSetOpen(d, true);
+      else ddHover(d, d.hi + (e.key === 'ArrowDown' ? 1 : -1));
+    } else if ((e.key === 'Enter' || e.key === ' ') && d.open && d.hi > -1) {
+      e.preventDefault();
+      d.swallow = e.key === ' ';
+      ddSelect(d, d.hi);
+    } else if (e.key === 'Escape' && d.open) {
+      e.preventDefault();
+      ddSetOpen(d, false);
+    }
+  });
+  document.addEventListener('keyup', e => {
+    const trig = e.target.closest && e.target.closest('.dd-trigger');
+    if (!trig || e.key !== ' ') return;
+    const d = ddOf(trig.closest('.dd-root'));
+    if (d.swallow) { e.preventDefault(); d.swallow = false; }
+  });
+
   /* ---------- Checkout ---------- */
   function field(group, key, label, o = {}) {
     const id = `f-${group}-${key}`;
@@ -807,11 +1027,8 @@ main.view { padding-top: 1.5rem; padding-bottom: 3rem; }
       ${field('shipping', 'city', 'City', { autocomplete: 'address-level2' })}
       ${field('shipping', 'postcode', 'Postcode / ZIP', { autocomplete: 'postal-code' })}
       <div class="field wide">
-        <label for="f-shipping-country">Country</label>
-        <select id="f-shipping-country" name="country" data-group="shipping" class="control" autocomplete="country"
-          aria-describedby="f-shipping-country-err">
-          ${COUNTRIES.map(([c, l]) => `<option value="${c}" ${s.country === c ? 'selected' : ''}>${l}</option>`).join('')}
-        </select>
+        <label id="f-shipping-country-label" for="f-shipping-country-btn">Country</label>
+        ${dropdownHTML({ id: 'f-shipping-country', name: 'country', group: 'shipping', labelId: 'f-shipping-country-label', errId: 'f-shipping-country-err', options: COUNTRIES, value: s.country })}
         <span class="err" id="f-shipping-country-err" aria-live="polite"></span>
       </div>
       <div class="form-actions">
