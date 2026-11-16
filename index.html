@@ -1,0 +1,1115 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lumen Watch Co. | Shop Simulator</title>
+<script>
+  /* Apply saved theme before first paint to avoid a flash. */
+  (function () {
+    try {
+      var t = localStorage.getItem('ows.theme') ||
+        (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.dataset.theme = t;
+    } catch (e) {}
+  })();
+</script>
+<style>
+/* ==========================================================================
+   NEUMORPHIC TOKENS
+   Each theme sets one surface colour (--bg) plus a light highlight
+   (--sh-light, top-left) and a dark shadow (--sh-dark, bottom-right).
+   Offsets and blurs are per theme too. The composite shadows at the
+   bottom of this block are built from those tokens, so changing a theme
+   token updates every card, button and input.
+   ========================================================================== */
+:root[data-theme="light"] {
+  --bg: #e6eaf0;              /* surface: cards, buttons, inputs share this */
+  --text: #1d2432;           /* body text, about 13:1 on --bg */
+  --text-muted: #4d5769;     /* secondary text, about 6:1 on --bg */
+  --accent: #3a57d1;         /* the single accent colour */
+  --accent-ink: #ffffff;     /* text placed on accent fills */
+  --focus: #1b2f8a;          /* focus ring */
+  --danger: #b42318;         /* validation errors */
+  --success: #1f7a4d;        /* added-to-cart and order confirmed */
+  --success-ink: #ffffff;
+  --border: rgba(29, 36, 50, .12);  /* thin edge so soft shadows still define shapes */
+  --sh-off: 8px;             /* large extrusion offset */
+  --sh-off-sm: 4px;          /* small extrusion and inset offset */
+  --sh-off-xs: 2px;          /* hairline inset offset */
+  --sh-blur: 16px;           /* large blur */
+  --sh-blur-sm: 8px;         /* small blur */
+  --sh-blur-xs: 4px;         /* hairline blur */
+  --sh-light: #ffffff;       /* highlight colour */
+  --sh-dark: #c2c9d5;        /* shadow colour */
+}
+:root[data-theme="dark"] {
+  --bg: #20242d;
+  --text: #e9edf5;
+  --text-muted: #aab3c3;
+  --accent: #8ea4ff;
+  --accent-ink: #0c1224;
+  --focus: #c6d3ff;
+  --danger: #ff8f85;
+  --success: #5fd39a;
+  --success-ink: #0b1f14;
+  --border: rgba(255, 255, 255, .09);
+  --sh-off: 8px;
+  --sh-off-sm: 4px;
+  --sh-off-xs: 2px;
+  --sh-blur: 18px;
+  --sh-blur-sm: 8px;
+  --sh-blur-xs: 4px;
+  --sh-light: #2e3541;
+  --sh-dark: #14171e;
+}
+/* Composite shadows, shared by both themes. */
+:root {
+  --shadow-raised: var(--sh-off) var(--sh-off) var(--sh-blur) var(--sh-dark),
+                   calc(-1 * var(--sh-off)) calc(-1 * var(--sh-off)) var(--sh-blur) var(--sh-light);
+  --shadow-raised-sm: var(--sh-off-sm) var(--sh-off-sm) var(--sh-blur-sm) var(--sh-dark),
+                      calc(-1 * var(--sh-off-sm)) calc(-1 * var(--sh-off-sm)) var(--sh-blur-sm) var(--sh-light);
+  --shadow-raised-lg: calc(var(--sh-off) * 1.5) calc(var(--sh-off) * 1.5) calc(var(--sh-blur) * 1.6) var(--sh-dark),
+                      calc(var(--sh-off) * -1.5) calc(var(--sh-off) * -1.5) calc(var(--sh-blur) * 1.6) var(--sh-light);
+  --shadow-inset: inset var(--sh-off-sm) var(--sh-off-sm) var(--sh-blur-sm) var(--sh-dark),
+                  inset calc(-1 * var(--sh-off-sm)) calc(-1 * var(--sh-off-sm)) var(--sh-blur-sm) var(--sh-light);
+  --shadow-inset-sm: inset var(--sh-off-xs) var(--sh-off-xs) var(--sh-blur-xs) var(--sh-dark),
+                     inset calc(-1 * var(--sh-off-xs)) calc(-1 * var(--sh-off-xs)) var(--sh-blur-xs) var(--sh-light);
+}
+
+/* ==========================================================================
+   BASE
+   ========================================================================== */
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font: 400 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  transition: background-color .4s ease, color .4s ease;
+}
+h1, h2, h3 { line-height: 1.2; margin: 0; }
+h1 { font-size: clamp(1.6rem, 4vw, 2.2rem); letter-spacing: -.01em; }
+p { margin: 0; }
+.muted { color: var(--text-muted); }
+.small { font-size: .875rem; }
+.sr-only {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; margin: -1px; padding: 0; border: 0;
+}
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+h1[tabindex="-1"]:focus, main:focus { outline: none; }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 1.25rem; }
+.footer { padding: 2rem 1.25rem; text-align: center; }
+
+/* ==========================================================================
+   MOTION
+   Entrances use transform and opacity only. Hover and press states use
+   short transitions. Burst and stagger effects are keyframes on transform
+   and opacity. Everything is disabled by prefers-reduced-motion at the end.
+   ========================================================================== */
+@keyframes viewIn { from { opacity: 0; transform: translateY(14px); } }
+@keyframes rise { from { opacity: 0; transform: translateY(18px) scale(.98); } }
+@keyframes shake { 20%, 60% { transform: translateX(-4px); } 40%, 80% { transform: translateX(4px); } }
+@keyframes burst {
+  0% { transform: translate(0, 0) scale(.4); opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(1); opacity: 0; }
+}
+@keyframes pop { 0% { transform: scale(.94); } 60% { transform: scale(1.03); } 100% { transform: scale(1); } }
+@keyframes bump { 0% { transform: scale(1); } 40% { transform: scale(1.35); } 100% { transform: scale(1); } }
+@keyframes tick { from { transform: translateY(-60%); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes dotIn { 0% { transform: scale(.6); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
+
+/* ==========================================================================
+   HEADER AND NAV
+   ========================================================================== */
+.site-header {
+  position: sticky; top: 0; z-index: 20;
+  background: var(--bg);
+  box-shadow: var(--shadow-raised-sm);
+}
+.header-inner {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 1rem; padding: .85rem 0;
+}
+.brand {
+  display: inline-flex; align-items: center; gap: .6rem;
+  background: none; border: 0; padding: .3rem .4rem; border-radius: 12px;
+  color: var(--text); font: inherit; font-weight: 700; font-size: 1.1rem; cursor: pointer;
+}
+.brand-icon .watch { width: 28px; height: auto; display: block; }
+.nav { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+.nav [aria-current="page"] { box-shadow: var(--shadow-inset-sm); color: var(--accent); }
+
+.badge {
+  display: inline-grid; place-items: center; min-width: 1.5rem; height: 1.5rem;
+  margin-left: .4rem; padding: 0 .4rem; border-radius: 999px;
+  background: var(--accent); color: var(--accent-ink);
+  font-size: .8rem; font-weight: 700;
+}
+.badge.bump { animation: bump .5s cubic-bezier(.34, 1.56, .64, 1); }
+
+/* Theme toggle: the knob slides on transform (magnetic-switch pattern). */
+.theme-toggle {
+  position: relative; width: 66px; height: 38px; padding: 0;
+  border-radius: 999px; border: 1px solid var(--border);
+  background: var(--bg); box-shadow: var(--shadow-inset); cursor: pointer;
+  color: var(--text); /* buttons don't inherit colour; without this the icon is black */
+}
+.theme-toggle .knob {
+  position: absolute; top: 4px; left: 4px;
+  width: 28px; height: 28px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 14px; color: inherit;
+  background: var(--bg); box-shadow: var(--shadow-raised-sm);
+  transition: transform .45s cubic-bezier(.3, 1.3, .5, 1);
+}
+.theme-toggle[aria-pressed="true"] .knob { transform: translateX(28px); }
+
+/* ==========================================================================
+   SURFACES AND BUTTONS
+   ========================================================================== */
+.card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: var(--shadow-raised);
+  padding: 1.25rem;
+}
+.tag {
+  display: inline-block; align-self: flex-start;
+  padding: .25rem .65rem; border-radius: 999px;
+  font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--accent); box-shadow: var(--shadow-inset-sm);
+}
+.price { font-weight: 700; font-size: 1.05rem; }
+.price-lg { font-size: 1.75rem; font-weight: 700; }
+
+/* Buttons: extruded at rest, lift on hover, sink to inset on press. */
+.btn {
+  position: relative; overflow: visible;
+  display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+  min-height: 44px; padding: .65rem 1.2rem;
+  font: inherit; font-weight: 600; color: var(--text);
+  background: var(--bg); border: 1px solid var(--border); border-radius: 14px;
+  box-shadow: var(--shadow-raised-sm); cursor: pointer; white-space: nowrap; text-decoration: none;
+  transition: transform .2s cubic-bezier(.2, .8, .2, 1), box-shadow .2s ease,
+              background-color .25s ease, color .25s ease;
+}
+.btn:hover { transform: translateY(-2px); }
+.btn:active { transform: translateY(0) scale(.97); box-shadow: var(--shadow-inset-sm); }
+.btn:disabled { opacity: .6; transform: none; cursor: default; box-shadow: var(--shadow-inset-sm); }
+.btn-primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.btn-ghost { background: transparent; box-shadow: none; border-color: var(--border); }
+.btn-ghost:hover { box-shadow: var(--shadow-raised-sm); }
+.btn-sm { min-height: 38px; padding: .45rem .9rem; font-size: .9rem; border-radius: 12px; }
+.btn-block { width: 100%; }
+.btn.added { animation: pop .45s ease; }
+.btn-primary.added { background: var(--success); color: var(--success-ink); }
+.btn[aria-busy="true"] { cursor: progress; }
+
+.ico { width: 1.1em; height: 1.1em; flex: none; }
+.ico path {
+  fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round;
+  stroke-dasharray: 1; stroke-dashoffset: 1;
+}
+.added .ico path { animation: draw .4s .08s ease forwards; }
+.spin {
+  width: 1em; height: 1em; border-radius: 50%; display: inline-block;
+  border: 2px solid currentColor; border-right-color: transparent;
+  animation: spin .8s linear infinite;
+}
+
+/* Add-to-cart burst: dots fly out from the button centre. */
+.burst { position: absolute; inset: 0; pointer-events: none; }
+.burst i {
+  position: absolute; left: 50%; top: 50%;
+  width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%;
+  background: var(--accent); animation: burst .6s cubic-bezier(.2, .7, .3, 1) forwards;
+}
+.btn-primary .burst i { background: var(--accent-ink); }
+
+/* ==========================================================================
+   FORMS
+   ========================================================================== */
+.control {
+  width: 100%; min-height: 44px; padding: .7rem .85rem;
+  font: inherit; color: var(--text);
+  background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: var(--shadow-inset);
+  transition: box-shadow .2s ease, border-color .2s ease;
+}
+.control::placeholder { color: var(--text-muted); opacity: .8; }
+.control:focus-visible { border-color: transparent; }
+.control[aria-invalid="true"] { border: 1px solid var(--danger); }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+@media (max-width: 560px) { .form-grid { grid-template-columns: 1fr; } }
+.field { display: flex; flex-direction: column; gap: .3rem; min-width: 0; }
+.field.wide { grid-column: 1 / -1; }
+.field label { font-weight: 600; font-size: .92rem; }
+.field.shake { animation: shake .4s ease; }
+.hint { font-size: .8rem; }
+.err { min-height: 1.2em; font-size: .85rem; color: var(--danger); }
+.form-actions { grid-column: 1 / -1; display: flex; justify-content: space-between; flex-wrap: wrap; gap: .75rem; margin-top: .5rem; }
+
+/* ==========================================================================
+   TOOLBAR: SEGMENTED FILTER AND SORT
+   The thumb slides between options (segmented-control pattern).
+   ========================================================================== */
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; margin: 1.25rem 0 .5rem; }
+.seg {
+  position: relative; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+  flex: 1 1 360px; max-width: 640px; padding: 4px;
+  background: var(--bg); border-radius: 16px; box-shadow: var(--shadow-inset);
+}
+.seg-thumb {
+  position: absolute; top: 4px; bottom: 4px; left: 4px;
+  width: calc((100% - 8px) / var(--count));
+  border-radius: 12px; background: var(--bg); box-shadow: var(--shadow-raised-sm);
+  transform: translateX(calc(var(--idx) * 100%));
+  transition: transform .45s cubic-bezier(.3, 1.25, .4, 1);
+}
+.seg button {
+  position: relative; z-index: 1; min-height: 40px; padding: .4rem .5rem;
+  background: none; border: 0; border-radius: 12px;
+  font: inherit; font-size: .92rem; color: var(--text-muted); cursor: pointer;
+  transition: color .2s ease;
+}
+.seg button:hover, .seg button[aria-pressed="true"] { color: var(--text); }
+.seg button[aria-pressed="true"] { font-weight: 700; }
+.select-wrap { display: flex; align-items: center; gap: .6rem; font-size: .95rem; }
+.select-wrap .control { width: auto; min-width: 210px; }
+
+/* ==========================================================================
+   PAGE HEADINGS, VIEWS, SPLIT LAYOUT
+   ========================================================================== */
+.page-head { margin-bottom: .75rem; }
+.h3 { font-size: 1.2rem; margin-bottom: .25rem; }
+main.view { padding-top: 1.5rem; padding-bottom: 3rem; }
+/* Page transition: the whole view fades and rises in. backwards fill keeps hover transforms working. */
+.view.enter { animation: viewIn .5s cubic-bezier(.2, .8, .2, 1) backwards; }
+.split { display: grid; gap: 1.5rem; grid-template-columns: 1fr; }
+@media (min-width: 900px) {
+  .split { grid-template-columns: minmax(0, 1fr) 340px; align-items: start; }
+  .summary { position: sticky; top: 96px; }
+}
+.summary { display: flex; flex-direction: column; gap: .75rem; }
+.sum-row { display: flex; justify-content: space-between; gap: 1rem; color: var(--text-muted); }
+.sum-row.total { color: var(--text); font-weight: 600; border-top: 1px solid var(--border); padding-top: .75rem; }
+.sum-total { font-size: 1.35rem; font-weight: 700; }
+.mini-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .4rem; font-size: .92rem; }
+.mini-list li { display: flex; justify-content: space-between; gap: 1rem; }
+.ship-to p { margin: 0; }
+.empty { display: grid; justify-items: center; gap: 1rem; padding: 2.5rem 1.25rem; text-align: center; }
+
+/* ==========================================================================
+   PRODUCT GRID AND CARDS
+   Card hover: lift and deepen the shadow. Press: settle slightly.
+   Image: inset well with a small tilt on hover.
+   ========================================================================== */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1.25rem; }
+.product {
+  display: flex; flex-direction: column; gap: .9rem; padding: 1rem;
+  transition: transform .35s cubic-bezier(.2, .8, .2, 1), box-shadow .35s ease;
+  animation: rise .55s cubic-bezier(.2, .8, .2, 1) backwards;
+  animation-delay: calc(min(var(--i), 8) * 60ms);
+}
+.product:hover { transform: translateY(-6px); box-shadow: var(--shadow-raised-lg); }
+.product:active { transform: translateY(-2px) scale(.985); }
+.product-media {
+  display: grid; place-items: center; width: 100%; min-height: 200px; padding: 1.1rem;
+  background: none; border: 0; border-radius: 18px; box-shadow: var(--shadow-inset);
+  cursor: pointer; color: inherit;
+}
+.product:hover .watch { transform: rotate(-4deg) scale(1.05); }
+.product-body { display: flex; flex-direction: column; gap: .4rem; flex: 1; }
+.product-name { font-size: 1.1rem; }
+.product-body p { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.product-foot { margin-top: auto; padding-top: .5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem; }
+@media (max-width: 520px) {
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .85rem; }
+  .product { padding: .7rem; }
+  .product-media { min-height: 150px; padding: .6rem; }
+  .product-foot { flex-direction: column; align-items: stretch; }
+  .product-foot .btn { width: 100%; }
+}
+
+.watch { width: 100%; height: auto; display: block; transition: transform .5s cubic-bezier(.2, .8, .2, 1); }
+.product-media .watch { width: min(120px, 70%); }
+.watch.sm { width: 52px; }
+.watch.big { width: min(220px, 70%); }
+
+/* ==========================================================================
+   PRODUCT DETAIL
+   ========================================================================== */
+.back { margin-bottom: 1rem; }
+.detail { display: grid; gap: 1.5rem; padding: 1.25rem; }
+.detail-media {
+  display: grid; place-items: center; min-height: 320px; padding: 2rem;
+  border-radius: 24px; box-shadow: var(--shadow-inset);
+}
+.detail-info { display: flex; flex-direction: column; gap: .75rem; }
+.specs { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .5rem; }
+.specs li { padding: .35rem .8rem; border-radius: 999px; font-size: .9rem; box-shadow: var(--shadow-inset-sm); }
+.detail-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; margin-top: .5rem; }
+@media (min-width: 760px) {
+  .detail { grid-template-columns: 1fr 1fr; align-items: center; padding: 2rem; }
+}
+
+/* ==========================================================================
+   CART
+   Quantity change: the number rolls in (tick). Remove: row slides out.
+   ========================================================================== */
+.cart-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem; }
+.cart-row {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; padding: 1rem;
+  transition: opacity .22s ease, transform .22s ease;
+}
+.cart-row.leaving { opacity: 0; transform: translateX(24px); }
+.cart-thumb {
+  flex: none; width: 84px; height: 84px; display: grid; place-items: center;
+  border-radius: 18px; box-shadow: var(--shadow-inset);
+}
+.cart-info { flex: 1 1 160px; min-width: 0; }
+.cart-name { font-size: 1.05rem; margin-bottom: .2rem; }
+.line-total { min-width: 5.5rem; font-weight: 700; text-align: right; }
+.stepper {
+  display: inline-flex; align-items: center; gap: .5rem; padding: .3rem;
+  border-radius: 16px; box-shadow: var(--shadow-inset);
+}
+.stepper button {
+  width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--border);
+  background: var(--bg); color: var(--text); font: inherit; font-size: 1.2rem; line-height: 1;
+  box-shadow: var(--shadow-raised-sm); cursor: pointer;
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.stepper button:hover:not(:disabled) { transform: translateY(-1px); }
+.stepper button:active:not(:disabled) { transform: scale(.92); box-shadow: var(--shadow-inset-sm); }
+.stepper button:disabled { opacity: .45; cursor: not-allowed; }
+.stepper output { display: inline-block; min-width: 2.2rem; overflow: hidden; text-align: center; font-weight: 700; }
+.stepper output.tick { animation: tick .32s cubic-bezier(.2, .8, .2, 1); }
+
+/* ==========================================================================
+   CHECKOUT STEPS
+   Progress fill: a transform scale on the track, not a width change.
+   ========================================================================== */
+.steps {
+  position: relative; display: flex; justify-content: space-between;
+  list-style: none; margin: 1.5rem 0 1.25rem; padding: 0;
+}
+.steps::before, .steps::after {
+  content: ""; position: absolute; top: 15px; left: 17px; right: 17px; height: 4px; border-radius: 4px;
+}
+.steps::before { background: var(--bg); box-shadow: var(--shadow-inset-sm); }
+.steps::after {
+  background: var(--accent); transform-origin: left; transform: scaleX(var(--p, 0));
+  transition: transform .6s cubic-bezier(.2, .8, .2, 1);
+}
+.steps li {
+  position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: .4rem;
+  font-size: .85rem; color: var(--text-muted);
+}
+.steps .dot {
+  width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--bg); box-shadow: var(--shadow-raised-sm); font-weight: 700; color: var(--text-muted);
+  transition: box-shadow .3s ease, background-color .3s ease, color .3s ease;
+}
+.steps li.active { color: var(--text); font-weight: 600; }
+.steps li.active .dot { box-shadow: var(--shadow-inset-sm); color: var(--accent); animation: dotIn .5s cubic-bezier(.34, 1.56, .64, 1); }
+.steps li.done .dot { background: var(--accent); color: var(--accent-ink); }
+
+/* ==========================================================================
+   ORDER CONFIRMATION
+   Loading-to-success pattern: the ring draws, then the tick draws.
+   ========================================================================== */
+.confirm { display: flex; flex-direction: column; align-items: center; gap: 1rem; max-width: 580px; margin: 1.5rem auto; padding: 2rem 1.5rem; text-align: center; }
+.confirm > * { max-width: 100%; }
+.check { width: 110px; height: 110px; }
+.check-ring, .check-mark { fill: none; stroke: var(--success); stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1; }
+.check-ring { stroke-width: 4; animation: draw .7s ease forwards; }
+.check-mark { stroke-width: 6; animation: draw .45s .55s ease forwards; }
+.order-meta { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; width: 100%; margin: 0; }
+.order-meta div { padding: .75rem; border-radius: 14px; box-shadow: var(--shadow-inset-sm); }
+.order-meta dt { font-size: .8rem; color: var(--text-muted); }
+.order-meta dd { margin: 0; font-weight: 600; }
+.confirm .mini-list { width: 100%; }
+
+/* ==========================================================================
+   REDUCED MOTION
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .burst { display: none; }
+}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap header-inner">
+    <button type="button" class="brand" data-action="go" data-view="shop" aria-label="Lumen Watch Co. home">
+      <span class="brand-icon" id="brand-icon" aria-hidden="true"></span>
+      <span>Lumen Watch Co.</span>
+    </button>
+    <nav class="nav" aria-label="Main">
+      <button type="button" class="btn btn-ghost btn-sm" id="nav-shop" data-action="go" data-view="shop">Shop</button>
+      <button type="button" class="btn btn-sm" id="nav-cart" data-action="go" data-view="cart">Cart<span class="badge" id="badge">0</span></button>
+      <button type="button" class="theme-toggle" id="theme" data-action="theme" aria-pressed="false" aria-label="Switch to dark theme">
+        <span class="knob" aria-hidden="true">&#9728;</span>
+      </button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap view" id="app" tabindex="-1"></main>
+
+<div id="status" class="sr-only" role="status" aria-live="polite"></div>
+<footer class="wrap footer muted small">Prototype simulator. No real payments, no network requests. Prices in USD.</footer>
+
+<script>
+(() => {
+  'use strict';
+
+  /* ---------- Constants and catalogue ---------- */
+  const STORE_KEY = 'ows.state.v1';
+  const THEME_KEY = 'ows.theme';
+  const MAX_QTY = 10;
+  const STYLES = ['All', 'Dress', 'Sport', 'Diver', 'Pilot', 'Smart'];
+  const SORTS = { featured: 'Featured', 'price-asc': 'Price: low to high', 'price-desc': 'Price: high to low' };
+  const COUNTRIES = [['US', 'United States'], ['CA', 'Canada'], ['GB', 'United Kingdom'], ['AU', 'Australia']];
+  const CHECK_ICON = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path pathLength="1" d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+
+  const PRODUCTS = [
+    { id: 'halden-36', name: 'Halden Classic 36', style: 'Dress', price: 199,
+      case: '#d9b26c', face: '#f7f2e6', mark: '#3b2d1b', strap: '#6b4a2b', accent: '#b8862f', hands: [300, 90, 200],
+      desc: 'A slim 36 mm dress watch with a warm gold-tone case and a clean cream dial.',
+      specs: ['36 mm case', 'Quartz movement', '30 m water resistance'] },
+    { id: 'marlow-heritage', name: 'Marlow Heritage', style: 'Dress', price: 579,
+      case: '#cfd3d8', face: '#fbfbf7', mark: '#1d1d1d', strap: '#1a1a1a', accent: '#3a57d1', hands: [200, 120, 90],
+      desc: 'Brushed silver case, domed glass and a black leather strap for formal occasions.',
+      specs: ['40 mm case', 'Automatic movement', '50 m water resistance'] },
+    { id: 'vantor-300', name: 'Vantor Dive 300', style: 'Diver', price: 389,
+      case: '#2d5d7b', face: '#10334a', mark: '#f3f6f8', strap: '#1d3c52', accent: '#f2a541', hands: [45, 180, 30],
+      desc: 'A rotating bezel and luminous markers built for depth, rated to 300 metres.',
+      specs: ['42 mm case', 'Automatic movement', '300 m water resistance'] },
+    { id: 'kestrel-gmt', name: 'Kestrel Pilot GMT', style: 'Pilot', price: 459,
+      case: '#8a939e', face: '#1b2230', mark: '#f4f4f4', strap: '#3a3f4a', accent: '#ff7a59', hands: [120, 300, 250],
+      desc: 'A second time zone complication and a high-contrast dial for long-haul navigation.',
+      specs: ['41 mm case', 'Quartz movement', '100 m water resistance'] },
+    { id: 'northwave-run', name: 'Northwave Runner', style: 'Sport', price: 129,
+      case: '#e0573f', face: '#f3f3f3', mark: '#1c1c1c', strap: '#222222', accent: '#e0573f', hands: [10, 60, 150],
+      desc: 'A lightweight resin case, a lap-timer bezel and a grippy strap for training days.',
+      specs: ['40 mm case', 'Quartz movement', '100 m water resistance'] },
+    { id: 'orbis-one', name: 'Orbis Smart One', style: 'Smart', price: 299,
+      case: '#2b2e36', face: '#0d0f14', mark: '#e8ecf4', strap: '#2b2e36', accent: '#4fd1c5', hands: [270, 90, 0],
+      desc: 'Heart-rate, sleep and step tracking on an always-on display with a week of battery.',
+      specs: ['44 mm case', '7-day battery', '5 ATM water resistance'] }
+  ];
+
+  /* Validation rules: [test, message]. Tests receive the raw field value. */
+  const RULES = {
+    shipping: {
+      name: [v => v.trim().length >= 2, 'Enter your full name.'],
+      email: [v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim()), 'Enter a valid email address.'],
+      address: [v => v.trim().length >= 5, 'Enter a street address.'],
+      city: [v => v.trim().length >= 2, 'Enter a city.'],
+      postcode: [v => /^[A-Za-z0-9][A-Za-z0-9 -]{2,8}$/.test(v.trim()), 'Enter a valid postcode.'],
+      country: [v => v !== '', 'Choose a country.']
+    },
+    card: {
+      name: [v => v.trim().length >= 2, 'Enter the name on the card.'],
+      number: [v => luhnOk(v.replace(/\s/g, '')), 'Enter a valid card number. Test: 4242 4242 4242 4242.'],
+      expiry: [v => expiryOk(v), 'Enter a future expiry as MM/YY.'],
+      cvc: [v => /^\d{3,4}$/.test(v), 'Enter a 3 or 4 digit CVC.']
+    }
+  };
+
+  function luhnOk(s) {
+    if (!/^\d{13,19}$/.test(s)) return false;
+    let sum = 0, alt = false;
+    for (let i = s.length - 1; i >= 0; i--) {
+      let n = +s[i];
+      if (alt) { n *= 2; if (n > 9) n -= 9; }
+      sum += n; alt = !alt;
+    }
+    return sum % 10 === 0;
+  }
+  function expiryOk(v) {
+    const m = /^(0[1-9]|1[0-2])\/(\d{2})$/.exec(v);
+    if (!m) return false;
+    // Valid through the end of the stated month.
+    return new Date(2000 + +m[2], +m[1], 1) > new Date();
+  }
+
+  /* ---------- State (cart and last order persist; form input does not) ---------- */
+  const USD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const money = n => USD.format(n);
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  function loadSaved() {
+    try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch (e) { return {}; }
+  }
+  function sanitizeCart(c) {
+    const out = {};
+    if (c && typeof c === 'object') {
+      for (const [id, q] of Object.entries(c)) {
+        if (PRODUCTS.some(p => p.id === id) && Number.isInteger(q) && q > 0) out[id] = Math.min(q, MAX_QTY);
+      }
+    }
+    return out;
+  }
+  const saved = loadSaved();
+  const state = {
+    view: 'shop',
+    filter: STYLES.includes(saved.filter) ? saved.filter : 'All',
+    sort: SORTS[saved.sort] ? saved.sort : 'featured',
+    cart: sanitizeCart(saved.cart),
+    selectedId: null,
+    step: 1,
+    lastOrder: saved.lastOrder && typeof saved.lastOrder === 'object' ? saved.lastOrder : null
+  };
+  let form = { shipping: { country: 'US' }, card: {} };
+
+  function save() {
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify({
+        cart: state.cart, filter: state.filter, sort: state.sort, lastOrder: state.lastOrder
+      }));
+    } catch (e) {}
+  }
+  function cartItems() {
+    return Object.entries(state.cart).map(([id, qty]) => {
+      const p = PRODUCTS.find(x => x.id === id);
+      return { p, qty, line: p.price * qty };
+    });
+  }
+  const cartCount = () => Object.values(state.cart).reduce((a, b) => a + b, 0);
+  const cartTotal = () => cartItems().reduce((a, i) => a + i.line, 0);
+  const incartText = q => (q ? `${q} in your cart` : 'Not in your cart yet');
+
+  /* ---------- Icons: generated SVG watch faces ---------- */
+  function watchSVG(p, size = '') {
+    const ticks = Array.from({ length: 12 }, (_, i) => {
+      const major = i % 3 === 0;
+      return `<line x1="60" y1="${major ? 46 : 48}" x2="60" y2="${major ? 52 : 51}" stroke="${p.mark}" stroke-width="${major ? 2.5 : 1.2}" transform="rotate(${i * 30} 60 80)"/>`;
+    }).join('');
+    return `<svg class="watch ${size}" viewBox="0 0 120 160" aria-hidden="true" focusable="false">
+      <rect x="45" y="2" width="30" height="34" rx="6" fill="${p.strap}"/>
+      <rect x="45" y="124" width="30" height="34" rx="6" fill="${p.strap}"/>
+      <circle cx="60" cy="80" r="46" fill="${p.case}"/>
+      <circle cx="60" cy="80" r="40" fill="${p.face}"/>
+      ${ticks}
+      <line x1="60" y1="80" x2="60" y2="58" stroke="${p.mark}" stroke-width="4" stroke-linecap="round" transform="rotate(${p.hands[0]} 60 80)"/>
+      <line x1="60" y1="80" x2="60" y2="38" stroke="${p.mark}" stroke-width="2.5" stroke-linecap="round" transform="rotate(${p.hands[1]} 60 80)"/>
+      <line x1="60" y1="84" x2="60" y2="36" stroke="${p.accent}" stroke-width="1.2" transform="rotate(${p.hands[2]} 60 80)"/>
+      <circle cx="60" cy="80" r="3" fill="${p.accent}"/>
+      <rect x="104" y="72" width="8" height="16" rx="2" fill="${p.case}"/>
+    </svg>`;
+  }
+
+  /* ---------- Rendering ---------- */
+  const app = $('#app');
+
+  function setEnter(on) {
+    app.classList.remove('enter');
+    void app.offsetWidth; // restart the keyframe
+    if (on) app.classList.add('enter');
+  }
+
+  function render({ enter = true, focus = 'h1' } = {}) {
+    const views = { shop: viewShop, product: viewProduct, cart: viewCart, checkout: viewCheckout, confirm: viewConfirm };
+    app.innerHTML = views[state.view]();
+    setEnter(enter);
+    if (enter) window.scrollTo(0, 0);
+    if (focus) (app.querySelector(focus) || app.querySelector('h1'))?.focus({ preventScroll: true });
+    updateNav();
+    save();
+  }
+
+  function updateNav() {
+    const groups = { '#nav-shop': ['shop', 'product'], '#nav-cart': ['cart', 'checkout', 'confirm'] };
+    for (const [sel, views] of Object.entries(groups)) {
+      const el = $(sel);
+      if (views.includes(state.view)) el.setAttribute('aria-current', 'page');
+      else el.removeAttribute('aria-current');
+    }
+  }
+
+  function updateBadge(bump) {
+    const n = cartCount();
+    const b = $('#badge');
+    b.textContent = n;
+    $('#nav-cart').setAttribute('aria-label', `Cart, ${n} item${n === 1 ? '' : 's'}`);
+    if (bump) { b.classList.remove('bump'); void b.offsetWidth; b.classList.add('bump'); }
+  }
+
+  function announce(msg) {
+    const s = $('#status');
+    s.textContent = '';
+    setTimeout(() => { s.textContent = msg; }, 30);
+  }
+
+  /* ---------- Shop ---------- */
+  function filtered() {
+    const list = PRODUCTS.filter(p => state.filter === 'All' || p.style === state.filter);
+    if (state.sort === 'price-asc') list.sort((a, b) => a.price - b.price);
+    if (state.sort === 'price-desc') list.sort((a, b) => b.price - a.price);
+    return list;
+  }
+  const countText = () => `Showing ${filtered().length} of ${PRODUCTS.length} watches`;
+
+  function viewShop() {
+    return `
+    <section class="page-head">
+      <h1 tabindex="-1">Watches</h1>
+      <p class="muted">Six fictional brands in one simulated shop. Nothing here is sold.</p>
+    </section>
+    <div class="toolbar">
+      <div class="seg" role="group" aria-label="Filter by style" style="--count:${STYLES.length};--idx:${STYLES.indexOf(state.filter)}">
+        <span class="seg-thumb" aria-hidden="true"></span>
+        ${STYLES.map(s => `<button type="button" data-action="filter" data-value="${s}" aria-pressed="${s === state.filter}">${s}</button>`).join('')}
+      </div>
+      <label class="select-wrap"><span>Sort by</span>
+        <select id="sort" class="control">
+          ${Object.entries(SORTS).map(([v, l]) => `<option value="${v}" ${v === state.sort ? 'selected' : ''}>${l}</option>`).join('')}
+        </select>
+      </label>
+    </div>
+    <p class="muted small" id="count" aria-live="polite">${countText()}</p>
+    <div class="grid" id="grid">${gridHTML()}</div>`;
+  }
+
+  function gridHTML() {
+    return filtered().map((p, i) => `
+      <article class="card product" style="--i:${i}">
+        <button type="button" class="product-media" data-action="open" data-id="${p.id}" aria-label="View details for ${esc(p.name)}">${watchSVG(p)}</button>
+        <div class="product-body">
+          <span class="tag">${p.style}</span>
+          <h2 class="product-name">${esc(p.name)}</h2>
+          <p class="muted small">${esc(p.desc)}</p>
+          <div class="product-foot">
+            <span class="price">${money(p.price)}</span>
+            <button type="button" class="btn btn-primary btn-sm" data-action="add" data-id="${p.id}">Add to cart</button>
+          </div>
+        </div>
+      </article>`).join('') || '<p class="muted">No watches match this filter.</p>';
+  }
+
+  function refreshGrid() {
+    $('#grid').innerHTML = gridHTML();
+    $('#count').textContent = countText();
+  }
+
+  function setFilter(v) {
+    state.filter = v;
+    $$('.seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.value === v)));
+    $('.seg').style.setProperty('--idx', STYLES.indexOf(v));
+    refreshGrid();
+    save();
+  }
+
+  /* ---------- Product detail ---------- */
+  function viewProduct() {
+    const p = PRODUCTS.find(x => x.id === state.selectedId);
+    if (!p) { state.view = 'shop'; return viewShop(); }
+    const q = state.cart[p.id] || 0;
+    return `
+    <button type="button" class="btn btn-ghost btn-sm back" data-action="go" data-view="shop">&larr; Back to shop</button>
+    <article class="card detail">
+      <div class="detail-media">${watchSVG(p, 'big')}</div>
+      <div class="detail-info">
+        <span class="tag">${p.style}</span>
+        <h1 tabindex="-1">${esc(p.name)}</h1>
+        <p class="price-lg">${money(p.price)}</p>
+        <p>${esc(p.desc)}</p>
+        <ul class="specs">${p.specs.map(s => `<li>${esc(s)}</li>`).join('')}</ul>
+        <div class="detail-actions">
+          <button type="button" class="btn btn-primary" data-action="add" data-id="${p.id}">Add to cart</button>
+          <p class="muted small" id="incart" aria-live="polite">${incartText(q)}</p>
+        </div>
+        <p class="muted small">Simulated purchase. You will not be charged.</p>
+      </div>
+    </article>`;
+  }
+
+  /* ---------- Cart ---------- */
+  function viewCart() {
+    const items = cartItems();
+    if (!items.length) return `
+      <section class="page-head"><h1 tabindex="-1">Your cart</h1></section>
+      <div class="card empty">
+        <p>Your cart is empty.</p>
+        <button type="button" class="btn btn-primary" data-action="go" data-view="shop">Browse watches</button>
+      </div>`;
+    return `
+    <section class="page-head"><h1 tabindex="-1">Your cart</h1>
+      <p class="muted">${cartCount()} item${cartCount() === 1 ? '' : 's'}</p></section>
+    <div class="split">
+      <ul class="cart-list" aria-label="Cart items">
+        ${items.map(({ p, qty, line }) => `
+        <li class="card cart-row" data-row="${p.id}">
+          <div class="cart-thumb">${watchSVG(p, 'sm')}</div>
+          <div class="cart-info">
+            <h2 class="cart-name">${esc(p.name)}</h2>
+            <p class="muted small">${money(p.price)} each</p>
+          </div>
+          <div class="stepper" role="group" aria-label="Quantity for ${esc(p.name)}">
+            <button type="button" data-action="dec" data-id="${p.id}" aria-label="Decrease quantity of ${esc(p.name)}">&minus;</button>
+            <output data-qty="${p.id}" aria-live="polite">${qty}</output>
+            <button type="button" data-action="inc" data-id="${p.id}" aria-label="Increase quantity of ${esc(p.name)}" ${qty >= MAX_QTY ? 'disabled' : ''}>+</button>
+          </div>
+          <p class="line-total">${money(line)}</p>
+          <button type="button" class="btn btn-ghost btn-sm" data-action="remove" data-id="${p.id}">Remove<span class="sr-only"> ${esc(p.name)}</span></button>
+        </li>`).join('')}
+      </ul>
+      <aside class="card summary" aria-label="Order summary">
+        <h2 class="h3">Summary</h2>
+        <div class="sum-row"><span>Items</span><span>${cartCount()}</span></div>
+        <div class="sum-row"><span>Shipping</span><span>Free (simulated)</span></div>
+        <div class="sum-row total"><span>Total</span><span class="sum-total" id="total">${money(cartTotal())}</span></div>
+        <button type="button" class="btn btn-primary btn-block" data-action="go" data-view="checkout">Checkout</button>
+      </aside>
+    </div>`;
+  }
+
+  /* ---------- Checkout ---------- */
+  function field(group, key, label, o = {}) {
+    const id = `f-${group}-${key}`;
+    const val = esc(form[group][key] || '');
+    return `
+    <div class="field${o.wide ? ' wide' : ''}">
+      <label for="${id}">${label}</label>
+      <input id="${id}" class="control" name="${key}" data-group="${group}" type="${o.type || 'text'}"
+        value="${val}" autocomplete="${o.autocomplete || 'off'}" required ${o.attrs || ''}
+        aria-describedby="${id}-err">
+      <span class="err" id="${id}-err" aria-live="polite"></span>
+    </div>`;
+  }
+
+  function shippingForm() {
+    const s = form.shipping;
+    return `
+    <h2 class="h3">Shipping details</h2>
+    <form id="ship-form" class="form-grid" novalidate>
+      ${field('shipping', 'name', 'Full name', { autocomplete: 'name', wide: true })}
+      ${field('shipping', 'email', 'Email', { type: 'email', autocomplete: 'email', wide: true })}
+      ${field('shipping', 'address', 'Street address', { autocomplete: 'street-address', wide: true })}
+      ${field('shipping', 'city', 'City', { autocomplete: 'address-level2' })}
+      ${field('shipping', 'postcode', 'Postcode / ZIP', { autocomplete: 'postal-code' })}
+      <div class="field wide">
+        <label for="f-shipping-country">Country</label>
+        <select id="f-shipping-country" name="country" data-group="shipping" class="control" autocomplete="country"
+          aria-describedby="f-shipping-country-err">
+          ${COUNTRIES.map(([c, l]) => `<option value="${c}" ${s.country === c ? 'selected' : ''}>${l}</option>`).join('')}
+        </select>
+        <span class="err" id="f-shipping-country-err" aria-live="polite"></span>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-ghost" data-action="go" data-view="cart">Back to cart</button>
+        <button type="submit" class="btn btn-primary">Continue to payment</button>
+      </div>
+    </form>`;
+  }
+
+  function paymentForm() {
+    return `
+    <h2 class="h3">Payment</h2>
+    <p class="muted small">Simulated only. Card details are format-checked and then discarded. Nothing is sent or stored.</p>
+    <form id="pay-form" class="form-grid" novalidate>
+      ${field('card', 'name', 'Name on card', { autocomplete: 'cc-name', wide: true })}
+      ${field('card', 'number', 'Card number', { autocomplete: 'cc-number', wide: true, attrs: 'inputmode="numeric" maxlength="23" placeholder="4242 4242 4242 4242"' })}
+      ${field('card', 'expiry', 'Expiry (MM/YY)', { autocomplete: 'cc-exp', attrs: 'inputmode="numeric" maxlength="5" placeholder="MM/YY"' })}
+      ${field('card', 'cvc', 'CVC', { autocomplete: 'cc-csc', attrs: 'inputmode="numeric" maxlength="4"' })}
+      <div class="form-actions">
+        <button type="button" class="btn btn-ghost" data-action="back-step">Back</button>
+        <button type="submit" class="btn btn-primary">Place order &middot; ${money(cartTotal())}</button>
+      </div>
+    </form>`;
+  }
+
+  function summaryBlock() {
+    const ship = form.shipping;
+    const shipTo = state.step === 2 && ship.name
+      ? `<div class="ship-to"><p class="small muted">Shipping to</p>
+           <p>${esc(ship.name)}<br>${esc(ship.address || '')}<br>${esc(ship.city || '')} ${esc(ship.postcode || '')}</p></div>`
+      : '';
+    return `
+    <h2 class="h3">Order summary</h2>
+    <ul class="mini-list">${cartItems().map(i => `<li><span>${esc(i.p.name)} &times; ${i.qty}</span><span>${money(i.line)}</span></li>`).join('')}</ul>
+    ${shipTo}
+    <div class="sum-row"><span>Shipping</span><span>Free (simulated)</span></div>
+    <div class="sum-row total"><span>Total</span><span class="sum-total">${money(cartTotal())}</span></div>`;
+  }
+
+  function viewCheckout() {
+    if (!cartCount()) return viewCart();
+    const step = state.step;
+    const labels = ['Shipping', 'Payment', 'Confirmed'];
+    return `
+    <section class="page-head"><h1 tabindex="-1">Checkout</h1></section>
+    <ol class="steps" style="--p:${(step - 1) / 2}">
+      ${labels.map((label, i) => {
+        const n = i + 1;
+        const cls = n < step ? 'done' : n === step ? 'active' : '';
+        return `<li class="${cls}"${n === step ? ' aria-current="step"' : ''}><span class="dot">${n < step ? '&#10003;' : n}</span><span>${label}</span></li>`;
+      }).join('')}
+    </ol>
+    <div class="split">
+      <section class="card">${step === 1 ? shippingForm() : paymentForm()}</section>
+      <aside class="card summary">${summaryBlock()}</aside>
+    </div>`;
+  }
+
+  function viewConfirm() {
+    const o = state.lastOrder;
+    if (!o) { state.view = 'shop'; return viewShop(); }
+    return `
+    <section class="card confirm">
+      <svg class="check" viewBox="0 0 120 120" aria-hidden="true" focusable="false">
+        <circle class="check-ring" cx="60" cy="60" r="52" pathLength="1"/>
+        <path class="check-mark" d="M36 62 L53 79 L86 44" pathLength="1"/>
+      </svg>
+      <h1 tabindex="-1">Order confirmed</h1>
+      <p>Thanks, ${esc(o.name)}. This is a simulation, so nothing was charged and nothing will ship.</p>
+      <dl class="order-meta">
+        <div><dt>Order</dt><dd>${esc(o.id)}</dd></div>
+        <div><dt>Date</dt><dd>${esc(o.date)}</dd></div>
+        <div><dt>Ship to</dt><dd>${esc(o.city)}, ${esc(o.country)}</dd></div>
+        <div><dt>Total</dt><dd>${money(o.total)}</dd></div>
+      </dl>
+      <ul class="mini-list">${o.items.map(i => `<li><span>${esc(i.name)} &times; ${i.qty}</span><span>${money(i.price * i.qty)}</span></li>`).join('')}</ul>
+      <button type="button" class="btn btn-primary" data-action="go" data-view="shop">Continue shopping</button>
+    </section>`;
+  }
+
+  /* ---------- Navigation and actions ---------- */
+  function go(view, id) {
+    if (view === 'checkout') {
+      if (!cartCount()) view = 'cart';
+      state.step = 1;
+    }
+    if (id) state.selectedId = id;
+    state.view = view;
+    render({ enter: true, focus: 'h1' });
+  }
+
+  /* Add-to-cart feedback: the button flips to a check, dots burst out, and it resets after 1.6s. */
+  function addFeedback(btn) {
+    if (!btn) return;
+    if (!btn.dataset.orig) btn.dataset.orig = btn.innerHTML;
+    btn.innerHTML = `${CHECK_ICON} Added`;
+    btn.classList.remove('added'); void btn.offsetWidth; btn.classList.add('added');
+    const wrap = document.createElement('span');
+    wrap.className = 'burst';
+    wrap.setAttribute('aria-hidden', 'true');
+    for (let i = 0; i < 8; i++) {
+      const s = document.createElement('i');
+      const a = (i / 8) * Math.PI * 2;
+      s.style.setProperty('--dx', `${(Math.cos(a) * 36).toFixed(1)}px`);
+      s.style.setProperty('--dy', `${(Math.sin(a) * 36).toFixed(1)}px`);
+      wrap.appendChild(s);
+    }
+    btn.appendChild(wrap);
+    setTimeout(() => wrap.remove(), 700);
+    clearTimeout(btn._reset);
+    btn._reset = setTimeout(() => {
+      btn.classList.remove('added');
+      if (btn.dataset.orig) btn.innerHTML = btn.dataset.orig;
+    }, 1600);
+  }
+
+  function addToCart(id, btn) {
+    const p = PRODUCTS.find(x => x.id === id);
+    if (!p) return;
+    const q = state.cart[id] || 0;
+    if (q >= MAX_QTY) { announce(`${p.name}: maximum quantity reached.`); return; }
+    state.cart[id] = q + 1;
+    save();
+    updateBadge(true);
+    addFeedback(btn);
+    const note = $('#incart');
+    if (note && state.view === 'product') note.textContent = incartText(state.cart[id]);
+    announce(`${p.name} added to cart.`);
+  }
+
+  function changeQty(id, delta) {
+    const p = PRODUCTS.find(x => x.id === id);
+    const q = (state.cart[id] || 0) + delta;
+    if (q > MAX_QTY) { announce('Maximum quantity is 10.'); return; }
+    if (q <= 0) { removeItem(id); return; }
+    state.cart[id] = q;
+    save();
+    updateBadge(true);
+    render({ enter: false, focus: `[data-action="${delta > 0 ? 'inc' : 'dec'}"][data-id="${id}"]` });
+    $(`[data-qty="${id}"]`)?.classList.add('tick');
+    announce(`${p.name}: quantity ${q}.`);
+  }
+
+  function removeItem(id) {
+    const row = app.querySelector(`[data-row="${id}"]`);
+    if (row) {
+      if (row.classList.contains('leaving')) return;
+      row.classList.add('leaving');
+    }
+    const p = PRODUCTS.find(x => x.id === id);
+    setTimeout(() => {
+      if (state.view !== 'cart') return;
+      delete state.cart[id];
+      updateBadge(true);
+      render({ enter: false, focus: '.cart-row [data-action="remove"]' });
+      announce(`${p.name} removed from cart.`);
+    }, row ? 220 : 0);
+  }
+
+  /* ---------- Forms: validation and simulated payment ---------- */
+  function setError(input, msg, shake) {
+    const err = document.getElementById(input.id + '-err');
+    if (err) err.textContent = msg;
+    input.setAttribute('aria-invalid', msg ? 'true' : 'false');
+    const wrap = input.closest('.field');
+    if (wrap && msg && shake) {
+      wrap.classList.remove('shake'); void wrap.offsetWidth; wrap.classList.add('shake');
+    }
+  }
+  function validateInput(input, shake = false) {
+    const group = input.dataset.group;
+    const rule = RULES[group] && RULES[group][input.name];
+    if (!rule) return true;
+    const ok = rule[0](form[group][input.name] || '');
+    setError(input, ok ? '' : rule[1], shake);
+    return ok;
+  }
+  function validateGroup(group, formEl) {
+    let first = null;
+    for (const key of Object.keys(RULES[group])) {
+      const input = formEl.elements[key];
+      if (!validateInput(input, true) && !first) first = input;
+    }
+    return first;
+  }
+
+  function onFieldChange(e) {
+    const t = e.target;
+    const group = t.dataset && t.dataset.group;
+    if (!group) return;
+    let v = t.value;
+    if (group === 'card' && t.name === 'number') {
+      v = v.replace(/\D/g, '').slice(0, 19).replace(/(\d{4})(?=\d)/g, '$1 ');
+    } else if (group === 'card' && t.name === 'expiry') {
+      const d = v.replace(/\D/g, '').slice(0, 4);
+      v = d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d;
+    } else if (group === 'card' && t.name === 'cvc') {
+      v = v.replace(/\D/g, '').slice(0, 4);
+    }
+    t.value = v;
+    form[group][t.name] = v;
+    if (t.getAttribute('aria-invalid') === 'true') validateInput(t);
+  }
+
+  function placeOrder() {
+    if (state.view !== 'checkout') return;
+    const items = cartItems();
+    const ship = form.shipping;
+    state.lastOrder = {
+      id: 'OWS-' + Math.random().toString(36).slice(2, 8).toUpperCase(),
+      date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
+      name: ship.name.trim(),
+      city: ship.city.trim(),
+      country: (COUNTRIES.find(c => c[0] === ship.country) || [ship.country, ship.country])[1],
+      items: items.map(i => ({ name: i.p.name, price: i.p.price, qty: i.qty })),
+      total: cartTotal()
+    };
+    state.cart = {};
+    state.step = 1;
+    state.view = 'confirm';
+    form = { shipping: { country: 'US' }, card: {} };
+    updateBadge(true);
+    render({ enter: true, focus: 'h1' });
+    announce('Order confirmed.');
+  }
+
+  /* ---------- Theme ---------- */
+  function applyTheme(t) {
+    document.documentElement.dataset.theme = t;
+    const b = $('#theme');
+    const dark = t === 'dark';
+    b.setAttribute('aria-pressed', String(dark));
+    b.setAttribute('aria-label', dark ? 'Switch to light theme' : 'Switch to dark theme');
+    b.querySelector('.knob').textContent = dark ? '\u263E' : '\u2600';
+  }
+  function toggleTheme() {
+    const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    applyTheme(next);
+    try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
+  }
+
+  /* ---------- Event wiring (delegated) ---------- */
+  document.addEventListener('click', e => {
+    const el = e.target.closest('[data-action]');
+    if (!el || el.disabled) return;
+    const { action: a, id, view, value } = el.dataset;
+    switch (a) {
+      case 'theme': toggleTheme(); break;
+      case 'go': go(view); break;
+      case 'open': go('product', id); break;
+      case 'filter': setFilter(value); break;
+      case 'add': addToCart(id, el); break;
+      case 'inc': changeQty(id, 1); break;
+      case 'dec': changeQty(id, -1); break;
+      case 'remove': removeItem(id); break;
+      case 'back-step': state.step = 1; render({ enter: true, focus: 'h1' }); break;
+    }
+  });
+
+  document.addEventListener('input', onFieldChange);
+  document.addEventListener('change', e => {
+    if (e.target.id === 'sort') {
+      state.sort = e.target.value;
+      refreshGrid();
+      save();
+    } else {
+      onFieldChange(e);
+    }
+  });
+  document.addEventListener('focusout', e => {
+    const t = e.target;
+    if (t.dataset && t.dataset.group && t.getAttribute('aria-invalid') === 'true') validateInput(t);
+  });
+
+  document.addEventListener('submit', e => {
+    e.preventDefault();
+    if (e.target.id === 'ship-form') {
+      const bad = validateGroup('shipping', e.target);
+      if (bad) { bad.focus(); return; }
+      state.step = 2;
+      render({ enter: true, focus: 'h1' });
+    } else if (e.target.id === 'pay-form') {
+      const bad = validateGroup('card', e.target);
+      if (bad) { bad.focus(); return; }
+      const btn = e.target.querySelector('button[type="submit"]');
+      btn.disabled = true;
+      btn.setAttribute('aria-busy', 'true');
+      btn.innerHTML = '<span class="spin" aria-hidden="true"></span> Processing&hellip;';
+      setTimeout(placeOrder, 1400);
+    }
+  });
+
+  /* ---------- Init ---------- */
+  $('#brand-icon').innerHTML = watchSVG(PRODUCTS[0]);
+  applyTheme(document.documentElement.dataset.theme || 'light');
+  updateBadge(false);
+  render({ enter: true, focus: null });
+})();
+</script>
+</body>
+</html>
