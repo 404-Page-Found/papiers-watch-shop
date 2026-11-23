@@ -644,7 +644,27 @@ main.view { padding-top: 1.5rem; padding-bottom: 3rem; }
     { id: 'daytona', name: 'Daytona', style: 'Sport', price: 32000, was: 64000, img: 'images/daytona.png',
       case: '#8a8f98', face: '#111214', mark: '#f4f4f4', strap: '#1c1c1c', accent: '#e0573f', hands: [120, 300, 250],
       desc: 'A racing-inspired chronograph with a tachymeter bezel and bold red accents.',
-      specs: ['40 mm case', 'Automatic chronograph', '100 m water resistance'] }
+      specs: ['40 mm case', 'Automatic chronograph', '100 m water resistance'] },
+    { id: 'seiko-7002', name: 'Seiko 7002 Diver', style: 'Diver', price: 28500, was: 57000, img: 'images/seiko-7002.jpg',
+      case: '#8a8f98', face: '#111111', mark: '#f4f4f4', strap: '#1c1c1c', accent: '#2f80c9', hands: [60, 180, 240],
+      desc: 'A vintage-style automatic diver with a 7002 movement and a sturdy 200 m rating.',
+      specs: ['41 mm case', 'Automatic movement', '200 m water resistance'],
+      credit: 'Photo: Francis Flinch, public domain, via Wikimedia Commons.' },
+    { id: 'gruen-autowind', name: 'Gruen Autowind 480SS', style: 'Dress', price: 18500, was: 37000, img: 'images/gruen-autowind.jpg',
+      case: '#c9ccd1', face: '#efe9d8', mark: '#2a2a2a', strap: '#4a3424', accent: '#b08a4f', hands: [280, 100, 190],
+      desc: 'A mid-century dress wristwatch powered by the Gruen 480SS self-winding calibre.',
+      specs: ['Automatic movement', '17 jewels', '30 hour power reserve'],
+      credit: 'Photo: BSE, CC BY-SA 3.0 de, via Wikimedia Commons.' },
+    { id: 'hanhart-pioneer', name: 'Hanhart Pioneer Mk I', style: 'Sport', price: 149000, was: 298000, img: 'images/hanhart-pioneer.jpg',
+      case: '#c4c8ce', face: '#1b1f24', mark: '#f2f2f2', strap: '#5b4a3a', accent: '#d8562f', hands: [150, 270, 40],
+      desc: 'A single-pusher automatic chronograph with a fluted rotating bezel and a classic field-watch look.',
+      specs: ['40 mm case', 'Automatic chronograph', '100 m water resistance'],
+      credit: 'Photo: Malaise, CC BY-SA 3.0, via Wikimedia Commons.' },
+    { id: 'citizen-promaster', name: 'Citizen Promaster Diver', style: 'Diver', price: 21000, was: 42000, img: 'images/citizen-promaster.jpg',
+      case: '#c9ccd1', face: '#0e2a4a', mark: '#f4f4f4', strap: '#1c1c1c', accent: '#f0b429', hands: [30, 200, 300],
+      desc: 'An ISO-certified Promaster diver with a bold bezel, luminous dial and 200 m water resistance.',
+      specs: ['42 mm case', 'Automatic movement', '200 m water resistance'],
+      credit: 'Photo: Pittigrilli, CC BY-SA 4.0, via Wikimedia Commons.' }
   ];
 
   /* Validation rules: [test, message]. Tests receive the raw field value. */
@@ -810,7 +830,7 @@ main.view { padding-top: 1.5rem; padding-bottom: 3rem; }
     return `
     <section class="page-head">
       <h1 tabindex="-1">Watches</h1>
-      <p class="muted">Four fictional watches in one simulated sale. Nothing here is sold.</p>
+      <p class="muted">${PRODUCTS.length} fictional watches in one simulated sale. Nothing here is sold.</p>
     </section>
     <div class="toolbar">
       <div class="seg" id="styles" role="group" aria-label="Filter by style" style="--count:${STYLES.length};--idx:${STYLES.indexOf(state.filter)}">
@@ -973,6 +993,7 @@ main.view { padding-top: 1.5rem; padding-bottom: 3rem; }
         <p class="price-lg">${p.was ? `<s class="muted small">${money(p.was)}</s> ` : ''}${money(p.price)}</p>
         <p>${esc(p.desc)}</p>
         <ul class="specs">${p.specs.map(s => `<li>${esc(s)}</li>`).join('')}</ul>
+        ${p.credit ? `<p class="muted small">${esc(p.credit)}</p>` : ''}
         <div class="detail-actions">
           <button type="button" class="btn btn-primary" data-action="add" data-id="${p.id}">Add to cart</button>
           <p class="muted small" id="incart" aria-live="polite">${incartText(q)}</p>
