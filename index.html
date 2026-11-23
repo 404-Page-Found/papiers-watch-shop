@@ -162,7 +162,20 @@ h1[tabindex="-1"]:focus, main:focus { outline: none; }
    short transitions. Burst and stagger effects are keyframes on transform
    and opacity. Everything is disabled by prefers-reduced-motion at the end.
    ========================================================================== */
+/* Motion tokens. New motion should use these instead of raw values. */
+:root {
+  --dur-instant: .12s;
+  --dur-fast: .2s;
+  --dur-base: .35s;
+  --dur-slow: .6s;
+  --ease-standard: cubic-bezier(.2, .8, .2, 1);     /* moves and enters */
+  --ease-overshoot: cubic-bezier(.3, 1.25, .4, 1);  /* settles with a small bounce */
+  --ease-spring: cubic-bezier(.34, 1.56, .64, 1);   /* pops and badges */
+  --ease-exit: cubic-bezier(.4, 0, 1, 1);           /* leaves the screen */
+}
 @keyframes viewIn { from { opacity: 0; transform: translateY(14px); } }
+@keyframes fadeOut { to { opacity: 0; transform: translateY(-6px) scale(.98); } }
+@keyframes backdropOut { to { opacity: 0; } }
 @keyframes rise { from { opacity: 0; transform: translateY(18px) scale(.98); } }
 @keyframes shake { 20%, 60% { transform: translateX(-4px); } 40%, 80% { transform: translateX(4px); } }
 @keyframes burst {
@@ -248,8 +261,8 @@ h1[tabindex="-1"]:focus, main:focus { outline: none; }
   font: inherit; font-weight: 600; color: var(--text);
   background: var(--bg); border: 1px solid var(--border); border-radius: 14px;
   box-shadow: var(--shadow-raised-sm); cursor: pointer; white-space: nowrap; text-decoration: none;
-  transition: transform .2s cubic-bezier(.2, .8, .2, 1), box-shadow .2s ease,
-              background-color .25s ease, color .25s ease;
+  transition: transform .2s cubic-bezier(.2, .8, .2, 1), translate .35s var(--ease-standard),
+              box-shadow .2s ease, background-color .25s ease, color .25s ease;
 }
 .btn:hover { transform: translateY(-2px); }
 .btn:active { transform: translateY(0) scale(.97); box-shadow: var(--shadow-inset-sm); }
@@ -260,6 +273,7 @@ h1[tabindex="-1"]:focus, main:focus { outline: none; }
 .btn-sm { min-height: 38px; padding: .45rem .9rem; font-size: .9rem; border-radius: 12px; }
 .btn-block { width: 100%; }
 .btn.added { animation: pop .45s ease; }
+.btn.added:disabled { opacity: 1; }
 .btn-primary.added { background: var(--success); color: var(--success-ink); }
 .btn[aria-busy="true"] { cursor: progress; }
 
@@ -332,6 +346,7 @@ h1[tabindex="-1"]:focus, main:focus { outline: none; }
 }
 .seg button:hover, .seg button[aria-pressed="true"] { color: var(--text); }
 .seg button[aria-pressed="true"] { font-weight: 700; }
+.seg button:active { transform: scale(.96); }
 
 /* Morph tooltip on the style filter (motion from the Morph Tooltip spec).
    One tooltip travels between options. The edge facing the move is stiff and
@@ -586,6 +601,8 @@ main.view { padding-top: 1.5rem; padding-bottom: 3rem; }
   box-shadow: var(--shadow-raised-lg);
 }
 .guide[open] { animation: rise .4s cubic-bezier(.2, .8, .2, 1); }
+.guide.closing { animation: fadeOut var(--dur-fast) var(--ease-exit) forwards; }
+.guide.closing::backdrop { animation: backdropOut var(--dur-fast) var(--ease-exit) forwards; }
 .guide::backdrop { background: rgba(10, 12, 18, .55); }
 .guide h2 { font-size: 1.4rem; margin-bottom: .75rem; }
 .guide-warning {
@@ -651,7 +668,9 @@ main.view { padding-top: 1.5rem; padding-bottom: 3rem; }
     <li>Add a watch to your cart to see the check mark and burst feedback.</li>
     <li>Open the sort dropdown to see the spring-based menu and staggered rows.</li>
     <li>Move across the style filter to see the morphing tooltip.</li>
-    <li>Go through checkout to see the step transitions and the confirmation animation.</li>
+    <li>Hover near a primary button to see it lean toward the pointer.</li>
+    <li>Go through checkout to see the step transitions, the loading to success button and the count-up total.</li>
+    <li>Remove an item from the cart to see the remaining rows slide up.</li>
   </ol>
   <div class="guide-actions">
     <button type="button" class="btn btn-primary" data-guide-close>Start exploring</button>
@@ -671,6 +690,7 @@ main.view { padding-top: 1.5rem; padding-bottom: 3rem; }
   const STYLES = ['All', 'Dress', 'Sport', 'Diver'];
   const SORTS = { featured: 'Featured', 'price-asc': 'Price: low to high', 'price-desc': 'Price: high to low' };
   const COUNTRIES = [['US', 'United States'], ['CA', 'Canada'], ['GB', 'United Kingdom'], ['AU', 'Australia']];
+  const REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const CHECK_ICON = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path pathLength="1" d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 
   const PRODUCTS = [
@@ -835,6 +855,7 @@ main.view { padding-top: 1.5rem; padding-bottom: 3rem; }
     setEnter(enter);
     if (enter) window.scrollTo(0, 0);
     if (focus) (app.querySelector(focus) || app.querySelector('h1'))?.focus({ preventScroll: true });
+    if (state.view === 'confirm') confirmMotion();
     updateNav();
     save();
   }
@@ -1360,11 +1381,58 @@ main.view { padding-top: 1.5rem; padding-bottom: 3rem; }
         <div><dt>Order</dt><dd>${esc(o.id)}</dd></div>
         <div><dt>Date</dt><dd>${esc(o.date)}</dd></div>
         <div><dt>Ship to</dt><dd>${esc(o.city)}, ${esc(o.country)}</dd></div>
-        <div><dt>Total</dt><dd>${money(o.total)}</dd></div>
+        <div><dt>Total</dt><dd data-total="${o.total}">${money(o.total)}</dd></div>
       </dl>
       <ul class="mini-list">${o.items.map(i => `<li><span>${esc(i.name)} &times; ${i.qty}</span><span>${money(i.price * i.qty)}</span></li>`).join('')}</ul>
       <button type="button" class="btn btn-primary" data-action="go" data-view="shop">Continue shopping</button>
     </section>`;
+  }
+
+  /* ---------- Motion helpers ----------
+     Scramble and count-up run on requestAnimationFrame and are skipped under
+     reduced motion. flipRows animates the cart rows that move after a removal. */
+  function scramble(el, final, ms = 700) {
+    const glyphs = '!<>-_\\/[]{}=+*^?#';
+    const t0 = performance.now();
+    const frame = now => {
+      const p = Math.min(1, (now - t0) / ms);
+      const lock = Math.floor(p * final.length);
+      el.textContent = final.split('').map((c, i) => (i < lock || c === ' ' ? c : glyphs[Math.floor(Math.random() * glyphs.length)])).join('');
+      if (p < 1) requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  }
+
+  function countUp(el, to, ms = 900) {
+    const t0 = performance.now();
+    const frame = now => {
+      const p = Math.min(1, (now - t0) / ms);
+      el.textContent = money(Math.round(to * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  }
+
+  function confirmMotion() {
+    if (REDUCE) return;
+    const h = app.querySelector('.confirm h1');
+    const total = app.querySelector('[data-total]');
+    if (h) scramble(h, h.textContent);
+    if (total) countUp(total, +total.dataset.total);
+  }
+
+  function flipRows(update) {
+    const first = new Map($$('[data-row]', app).map(r => [r.dataset.row, r.getBoundingClientRect().top]));
+    update();
+    if (REDUCE) return;
+    $$('[data-row]', app).forEach(r => {
+      const top = first.get(r.dataset.row);
+      if (top === undefined) return;
+      const dy = top - r.getBoundingClientRect().top;
+      if (Math.abs(dy) > 1) r.animate(
+        [{ transform: `translateY(${dy}px)` }, { transform: 'none' }],
+        { duration: 320, easing: 'cubic-bezier(.2, .8, .2, 1)' });
+    });
   }
 
   /* ---------- Navigation and actions ---------- */
@@ -1441,7 +1509,7 @@ main.view { padding-top: 1.5rem; padding-bottom: 3rem; }
       if (state.view !== 'cart') return;
       delete state.cart[id];
       updateBadge(true);
-      render({ enter: false, focus: '.cart-row [data-action="remove"]' });
+      flipRows(() => render({ enter: false, focus: '.cart-row [data-action="remove"]' }));
       announce(`${p.name} removed from cart.`);
     }, row ? 220 : 0);
   }
@@ -1561,6 +1629,23 @@ main.view { padding-top: 1.5rem; padding-bottom: 3rem; }
     }
   });
 
+  /* Magnetic primary buttons lean toward the pointer. Fine pointers only. */
+  const FINE_POINTER = matchMedia('(hover: hover) and (pointer: fine)').matches;
+  document.addEventListener('pointermove', e => {
+    if (REDUCE || !FINE_POINTER) return;
+    const b = e.target.closest && e.target.closest('.btn-primary:not(:disabled)');
+    if (!b) return;
+    const r = b.getBoundingClientRect();
+    const clamp = v => Math.max(-8, Math.min(8, v));
+    const x = clamp((e.clientX - r.left - r.width / 2) * .2);
+    const y = clamp((e.clientY - r.top - r.height / 2) * .2);
+    b.style.translate = `${x.toFixed(1)}px ${y.toFixed(1)}px`;
+  });
+  document.addEventListener('pointerout', e => {
+    const b = e.target.closest && e.target.closest('.btn-primary');
+    if (b && b.style.translate && !b.contains(e.relatedTarget)) b.style.translate = '';
+  });
+
   document.addEventListener('input', onFieldChange);
   document.addEventListener('change', e => {
     if (e.target.id === 'sort') {
@@ -1590,6 +1675,11 @@ main.view { padding-top: 1.5rem; padding-bottom: 3rem; }
       btn.disabled = true;
       btn.setAttribute('aria-busy', 'true');
       btn.innerHTML = '<span class="spin" aria-hidden="true"></span> Processing&hellip;';
+      setTimeout(() => {
+        btn.removeAttribute('aria-busy');
+        btn.classList.add('added');
+        btn.innerHTML = `${CHECK_ICON} Order placed`;
+      }, 900);
       setTimeout(placeOrder, 1400);
     }
   });
@@ -1604,8 +1694,13 @@ main.view { padding-top: 1.5rem; padding-bottom: 3rem; }
   /* Opened on every load on purpose. Nothing is saved, so it returns after each refresh. */
   const guide = $('#guide');
   guide.showModal();
+  const closeGuide = () => {
+    if (REDUCE) { guide.close(); return; }
+    guide.classList.add('closing');
+    setTimeout(() => { guide.close(); guide.classList.remove('closing'); }, 200);
+  };
   guide.addEventListener('click', e => {
-    if (e.target === guide || e.target.closest('[data-guide-close]')) guide.close();
+    if (e.target === guide || e.target.closest('[data-guide-close]')) closeGuide();
   });
 })();
 </script>
