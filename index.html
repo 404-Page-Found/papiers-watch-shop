@@ -1,27 +1,30 @@
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="light" data-style="flat">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Papier's Watch Sale | Shop Simulator</title>
 <script>
-  /* Apply saved theme before first paint to avoid a flash. */
+  /* Apply saved theme and design style before first paint to avoid a flash. */
   (function () {
     try {
       var t = localStorage.getItem('ows.theme') ||
         (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
       document.documentElement.dataset.theme = t;
+      document.documentElement.dataset.style =
+        localStorage.getItem('ows.style') === 'neumorphic' ? 'neumorphic' : 'flat';
     } catch (e) {}
   })();
 </script>
 <style>
 /* ==========================================================================
-   NEUMORPHIC TOKENS
-   Each theme sets one surface colour (--bg) plus a light highlight
-   (--sh-light, top-left) and a dark shadow (--sh-dark, bottom-right).
-   Offsets and blurs are per theme too. The composite shadows at the
-   bottom of this block are built from those tokens, so changing a theme
-   token updates every card, button and input.
+   DESIGN TOKENS
+   Light and dark themes are set per colour scheme. Each theme sets one
+   surface colour (--bg) plus a light highlight (--sh-light, top-left) and
+   a dark shadow (--sh-dark, bottom-right). Offsets and blurs are per theme
+   too. The composite shadows below are built from those tokens.
+   Design style: "neumorphic" (extruded, soft shadows) or "flat" (default,
+   no shadows, outlines only). See the flat override after the composites.
    ========================================================================== */
 :root[data-theme="light"] {
   --bg: #e6eaf0;              /* surface: cards, buttons, inputs share this */
@@ -76,6 +79,56 @@
   --shadow-inset-sm: inset var(--sh-off-xs) var(--sh-off-xs) var(--sh-blur-xs) var(--sh-dark),
                      inset calc(-1 * var(--sh-off-xs)) calc(-1 * var(--sh-off-xs)) var(--sh-blur-xs) var(--sh-light);
 }
+/* Flat style, built on shadcn/ui's neutral theme tokens (oklch values
+   from the shadcn default palette). Shadows are replaced by 1px outlines,
+   and the shadcn radius scale is applied to the existing components. */
+:root[data-style="flat"] {
+  --shadow-raised: none;
+  --shadow-raised-sm: 0 0 0 1px var(--border);
+  --shadow-raised-lg: 0 0 0 1px var(--border);
+  --shadow-inset: inset 0 0 0 1px var(--border);
+  --shadow-inset-sm: inset 0 0 0 1px var(--border);
+  --radius: .625rem;
+}
+:root[data-style="flat"][data-theme="light"] {
+  --bg: oklch(1 0 0);
+  --text: oklch(.145 0 0);
+  --text-muted: oklch(.556 0 0);
+  --accent: oklch(.205 0 0);          /* shadcn primary */
+  --accent-ink: oklch(.985 0 0);      /* shadcn primary-foreground */
+  --focus: oklch(.708 0 0);           /* shadcn ring */
+  --danger: oklch(.577 .245 27.325);  /* shadcn destructive */
+  --border: oklch(.922 0 0);          /* shadcn border and input */
+}
+:root[data-style="flat"][data-theme="dark"] {
+  --bg: oklch(.145 0 0);
+  --text: oklch(.985 0 0);
+  --text-muted: oklch(.708 0 0);
+  --accent: oklch(.922 0 0);
+  --accent-ink: oklch(.205 0 0);
+  --focus: oklch(.556 0 0);
+  --danger: oklch(.704 .191 22.216);
+  --border: oklch(1 0 0 / 15%);
+}
+/* Shadcn-style component treatment: no lift on hover, medium weight, radius scale. */
+:root[data-style="flat"] .btn { font-weight: 500; border-radius: calc(var(--radius) - 2px); }
+:root[data-style="flat"] .btn:hover, :root[data-style="flat"] .btn:active { transform: none; }
+:root[data-style="flat"] .btn-primary:hover { background: color-mix(in oklch, var(--accent) 90%, transparent); }
+:root[data-style="flat"] .btn-sm { border-radius: calc(var(--radius) - 2px); }
+:root[data-style="flat"] .card { border-radius: calc(var(--radius) + 4px); }
+:root[data-style="flat"] .product-media,
+:root[data-style="flat"] .cart-thumb { border-radius: calc(var(--radius) + 2px); }
+:root[data-style="flat"] .product:hover, :root[data-style="flat"] .product:active { transform: none; }
+:root[data-style="flat"] .control,
+:root[data-style="flat"] .dd-trigger,
+:root[data-style="flat"] .stepper,
+:root[data-style="flat"] .tag,
+:root[data-style="flat"] .specs li { border-radius: calc(var(--radius) - 2px); }
+:root[data-style="flat"] .dd-menu { border-radius: var(--radius); }
+:root[data-style="flat"] .seg,
+:root[data-style="flat"] .order-meta div { border-radius: calc(var(--radius) + 2px); }
+:root[data-style="flat"] .seg-thumb,
+:root[data-style="flat"] .seg button { border-radius: calc(var(--radius) - 2px); }
 
 /* ==========================================================================
    BASE
@@ -516,6 +569,7 @@ main.view { padding-top: 1.5rem; padding-bottom: 3rem; }
     <nav class="nav" aria-label="Main">
       <button type="button" class="btn btn-ghost btn-sm" id="nav-shop" data-action="go" data-view="shop">Shop</button>
       <button type="button" class="btn btn-sm" id="nav-cart" data-action="go" data-view="cart">Cart<span class="badge" id="badge">0</span></button>
+      <button type="button" class="btn btn-ghost btn-sm" id="style" data-action="style">Flat</button>
       <button type="button" class="theme-toggle" id="theme" data-action="theme" aria-pressed="false" aria-label="Switch to dark theme">
         <span class="knob" aria-hidden="true">&#9728;</span>
       </button>
@@ -535,6 +589,7 @@ main.view { padding-top: 1.5rem; padding-bottom: 3rem; }
   /* ---------- Constants and catalogue ---------- */
   const STORE_KEY = 'ows.state.v1';
   const THEME_KEY = 'ows.theme';
+  const STYLE_KEY = 'ows.style';
   const MAX_QTY = 10;
   const STYLES = ['All', 'Dress', 'Sport', 'Diver'];
   const SORTS = { featured: 'Featured', 'price-asc': 'Price: low to high', 'price-desc': 'Price: high to low' };
@@ -1270,6 +1325,20 @@ main.view { padding-top: 1.5rem; padding-bottom: 3rem; }
     try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
   }
 
+  /* Design style: Flat (default) or Neumorphism. */
+  function applyStyle(s) {
+    document.documentElement.dataset.style = s;
+    const b = $('#style');
+    const neu = s === 'neumorphic';
+    b.textContent = neu ? 'Neumorphism' : 'Flat';
+    b.setAttribute('aria-label', `Design style: ${neu ? 'Neumorphism' : 'Flat'}. Switch to ${neu ? 'flat' : 'Neumorphism'}`);
+  }
+  function toggleStyle() {
+    const next = document.documentElement.dataset.style === 'neumorphic' ? 'flat' : 'neumorphic';
+    applyStyle(next);
+    try { localStorage.setItem(STYLE_KEY, next); } catch (e) {}
+  }
+
   /* ---------- Event wiring (delegated) ---------- */
   document.addEventListener('click', e => {
     const el = e.target.closest('[data-action]');
@@ -1277,6 +1346,7 @@ main.view { padding-top: 1.5rem; padding-bottom: 3rem; }
     const { action: a, id, view, value } = el.dataset;
     switch (a) {
       case 'theme': toggleTheme(); break;
+      case 'style': toggleStyle(); break;
       case 'go': go(view); break;
       case 'open': go('product', id); break;
       case 'filter': setFilter(value); break;
@@ -1324,6 +1394,7 @@ main.view { padding-top: 1.5rem; padding-bottom: 3rem; }
   /* ---------- Init ---------- */
   $('#brand-icon').innerHTML = watchSVG(PRODUCTS[0]);
   applyTheme(document.documentElement.dataset.theme || 'light');
+  applyStyle(document.documentElement.dataset.style === 'neumorphic' ? 'neumorphic' : 'flat');
   updateBadge(false);
   render({ enter: true, focus: null });
 })();
