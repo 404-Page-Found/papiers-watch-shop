@@ -332,6 +332,38 @@ h1[tabindex="-1"]:focus, main:focus { outline: none; }
 }
 .seg button:hover, .seg button[aria-pressed="true"] { color: var(--text); }
 .seg button[aria-pressed="true"] { font-weight: 700; }
+
+/* Morph tooltip on the style filter (motion from the Morph Tooltip spec).
+   One tooltip travels between options. The edge facing the move is stiff and
+   the trailing edge is soft, so it stretches over and settles at the next width. */
+.seg .tip {
+  position: absolute; left: 0; bottom: calc(100% + 12px); height: 34px; z-index: 3;
+  border-radius: 11px; overflow: hidden; pointer-events: none; opacity: 0;
+  background: var(--text); color: var(--bg);
+  transform-origin: 50% 140%; will-change: transform, width, opacity;
+}
+.seg .lab {
+  position: absolute; left: 50%; top: 0; height: 34px; display: flex; align-items: center; gap: 8px;
+  padding: 0 8px 0 12px; white-space: nowrap; font-size: .85rem; font-weight: 500;
+  opacity: 0; will-change: transform, opacity;
+}
+.seg .lab kbd {
+  font: inherit; font-size: .72rem; font-weight: 600; min-width: 20px; height: 20px; padding: 0 5px;
+  border-radius: 6px; display: grid; place-items: center; background: color-mix(in oklch, var(--bg) 16%, transparent);
+}
+.seg .tail {
+  position: absolute; left: 0; bottom: calc(100% + 9px); width: 12px; height: 12px; border-radius: 3px; z-index: 3;
+  background: var(--text); opacity: 0; pointer-events: none; will-change: transform, opacity;
+}
+.seg .preview {
+  position: absolute; left: 0; top: calc(100% + 12px); width: 220px; padding: 10px; z-index: 3;
+  border-radius: 14px; background: var(--bg); box-shadow: var(--shadow-raised-sm);
+  opacity: 0; pointer-events: none; transform-origin: 50% 0; will-change: transform, opacity;
+}
+.seg .pv-in { display: flex; align-items: center; gap: 12px; animation: pvIn .35s cubic-bezier(.2, .8, .2, 1); }
+.seg .pv-in .photo.sm, .seg .pv-in .watch.sm { width: 56px; height: 56px; flex: none; }
+.seg .pv-body { display: flex; flex-direction: column; min-width: 0; }
+@keyframes pvIn { from { opacity: 0; transform: translateY(6px) scale(.97); } }
 .select-wrap { display: flex; align-items: center; gap: .6rem; font-size: .95rem; }
 .select-wrap .dd-root { width: auto; min-width: 210px; }
 
@@ -734,6 +766,7 @@ main.view { padding-top: 1.5rem; padding-bottom: 3rem; }
   function render({ enter = true, focus = 'h1' } = {}) {
     const views = { shop: viewShop, product: viewProduct, cart: viewCart, checkout: viewCheckout, confirm: viewConfirm };
     app.innerHTML = views[state.view]();
+    if (state.view === 'shop') initMorphNav();
     setEnter(enter);
     if (enter) window.scrollTo(0, 0);
     if (focus) (app.querySelector(focus) || app.querySelector('h1'))?.focus({ preventScroll: true });
@@ -780,8 +813,11 @@ main.view { padding-top: 1.5rem; padding-bottom: 3rem; }
       <p class="muted">Four fictional watches in one simulated sale. Nothing here is sold.</p>
     </section>
     <div class="toolbar">
-      <div class="seg" role="group" aria-label="Filter by style" style="--count:${STYLES.length};--idx:${STYLES.indexOf(state.filter)}">
+      <div class="seg" id="styles" role="group" aria-label="Filter by style" style="--count:${STYLES.length};--idx:${STYLES.indexOf(state.filter)}">
+        <div class="tip" aria-hidden="true">${STYLES.map(s => `<span class="lab">${s}<kbd>${PRODUCTS.filter(p => s === 'All' || p.style === s).length}</kbd></span>`).join('')}</div>
+        <i class="tail" aria-hidden="true"></i>
         <span class="seg-thumb" aria-hidden="true"></span>
+        <div class="preview" aria-hidden="true"></div>
         ${STYLES.map(s => `<button type="button" data-action="filter" data-value="${s}" aria-pressed="${s === state.filter}">${s}</button>`).join('')}
       </div>
       <div class="select-wrap"><span id="sort-label">Sort by</span>
@@ -819,6 +855,107 @@ main.view { padding-top: 1.5rem; padding-bottom: 3rem; }
     $('.seg').style.setProperty('--idx', STYLES.indexOf(v));
     refreshGrid();
     save();
+  }
+
+  /* Morph tooltip spring loop. Each render mounts a fresh loop, and the loop
+     stops once its element has left the DOM. */
+  function initMorphNav() {
+    const seg = $('#styles');
+    if (!seg) return;
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const btns = $$('button', seg);
+    const tip = $('.tip', seg), tail = $('.tail', seg);
+    const spring = (x, k, c) => ({ x, v: 0, t: x, k, c });
+    const LEAD = [620, 36], TRAIL = [190, 19];
+    const labs = $$('.lab', seg).map(el => ({ el, o: spring(0, 420, 32), dir: 0 }));
+    const TL = spring(0, ...LEAD), TR = spring(0, ...LEAD), TX = spring(0, 300, 22), A = spring(0, 420, 24);
+    const springs = [TL, TR, TX, A, ...labs.map(l => l.o)];
+    const setK = (s, [k, c]) => { s.k = k; s.c = c; };
+    const clampTo = (v, a, b) => Math.max(a, Math.min(b, v));
+    let cur = -1, hideAt = 0, last = performance.now();
+
+    function place(i, snap) {
+      const b = btns[i], c = b.offsetLeft + b.offsetWidth / 2, half = labs[i].el.offsetWidth / 2;
+      [[TL, c - half], [TR, c + half], [TX, c]].forEach(([s, v]) => {
+        s.t = v;
+        if (snap) { s.x = v; s.v = 0; }
+      });
+    }
+
+    function point(i) {
+      hideAt = 0;
+      if (i === cur) { A.t = 1; return; }
+      const dir = cur < 0 ? 0 : Math.sign(i - cur);
+      if (A.x < .3) {
+        place(i, true);
+        labs.forEach((l, k) => { l.o.x = l.o.t = k === i ? 1 : 0; l.o.v = 0; l.dir = 0; });
+      } else {
+        const right = dir >= 0;
+        setK(TR, right ? LEAD : TRAIL); setK(TL, right ? TRAIL : LEAD);
+        place(i, false);
+        labs.forEach((l, k) => {
+          if (k === i) { l.dir = dir; l.o.t = 1; }
+          else if (l.o.t === 1) { l.dir = -dir; l.o.t = 0; }
+        });
+      }
+      fillPreview(i);
+      cur = i; A.t = 1;
+    }
+
+    const leave = () => { hideAt = performance.now() + 140; };
+    const step = (s, dt) => {
+      if (reduce) { s.x = s.t; s.v = 0; return; }
+      s.v += (-s.k * (s.x - s.t) - s.c * s.v) * dt;
+      s.x += s.v * dt;
+    };
+
+    function render() {
+      const a = clampTo(A.x, 0, 1.15), op = clampTo(A.x, 0, 1), W = seg.clientWidth;
+      const l0 = Math.min(TL.x, TR.x - 30), w = TR.x - l0, l = clampTo(l0, 0, W - w);
+      tip.style.width = `${w}px`;
+      tip.style.opacity = op;
+      tip.style.transform = `translate(${l}px, ${(1 - a) * 6}px) scale(${.72 + .28 * a})`;
+      const tx = clampTo(TX.x, l + 12, l + w - 12);
+      tail.style.opacity = op;
+      tail.style.transform = `translate(${tx - 6}px, ${(1 - a) * 8}px) rotate(45deg) scale(${clampTo(a, 0, 1)})`;
+      labs.forEach(lb => {
+        const o = clampTo(lb.o.x, 0, 1);
+        lb.el.style.opacity = o;
+        lb.el.style.transform = `translateX(calc(-50% + ${(lb.dir * (1 - o) * 14).toFixed(2)}px))`;
+        lb.el.style.filter = o > .02 && o < .98 ? `blur(${((1 - o) * 3).toFixed(2)}px)` : 'none';
+      });
+    }
+
+    const prev = $('.preview', seg), PW = 220;
+    function fillPreview(i) {
+      const s = STYLES[i], list = PRODUCTS.filter(p => s === 'All' || p.style === s);
+      prev.innerHTML = `<div class="pv-in">${watchMedia(list[0], 'sm')}<div class="pv-body"><strong>${s}</strong><span class="muted small">${list.length} watch${list.length === 1 ? '' : 'es'}</span></div></div>`;
+    }
+    function renderPreview() {
+      const a = clampTo(A.x, 0, 1.15), op = clampTo(A.x, 0, 1), W = seg.clientWidth;
+      const x = clampTo(TX.x - PW / 2, 0, W - PW);
+      prev.style.opacity = op;
+      prev.style.transform = `translateX(${x}px) scale(${(.96 + .04 * a).toFixed(4)})`;
+    }
+
+    function frame(now) {
+      if (!seg.isConnected) return;
+      const dt = Math.min((now - last) / 1000, 1 / 30);
+      last = now;
+      if (hideAt && now >= hideAt) { hideAt = 0; A.t = 0; cur = -1; }
+      for (let k = 0; k < 4; k++) springs.forEach(s => step(s, dt / 4));
+      render();
+      renderPreview();
+      requestAnimationFrame(frame);
+    }
+
+    btns.forEach((b, i) => {
+      b.addEventListener('pointerenter', () => point(i));
+      b.addEventListener('focus', () => point(i));
+      b.addEventListener('blur', leave);
+    });
+    seg.addEventListener('pointerleave', leave);
+    requestAnimationFrame(frame);
   }
 
   /* ---------- Product detail ---------- */
