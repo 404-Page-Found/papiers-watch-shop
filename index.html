@@ -576,6 +576,29 @@ main.view { padding-top: 1.5rem; padding-bottom: 3rem; }
 .confirm .mini-list { width: 100%; }
 
 /* ==========================================================================
+   GUIDE DIALOG (shown on every load)
+   ========================================================================== */
+.guide {
+  width: min(560px, calc(100vw - 2rem)); max-height: calc(100vh - 2rem); overflow: auto;
+  padding: 1.5rem; margin: auto;
+  background: var(--bg); color: var(--text);
+  border: 1px solid var(--border); border-radius: 24px;
+  box-shadow: var(--shadow-raised-lg);
+}
+.guide[open] { animation: rise .4s cubic-bezier(.2, .8, .2, 1); }
+.guide::backdrop { background: rgba(10, 12, 18, .55); }
+.guide h2 { font-size: 1.4rem; margin-bottom: .75rem; }
+.guide-warning {
+  margin: 0 0 1rem; padding: .85rem 1rem; border-radius: 14px;
+  color: var(--danger); box-shadow: var(--shadow-inset-sm);
+}
+.guide-warning strong { display: block; margin-bottom: .25rem; }
+.guide p + p { margin-top: .6rem; }
+.guide h3 { font-size: 1rem; margin: 1.25rem 0 .5rem; }
+.guide ol { margin: 0; padding-left: 1.25rem; display: grid; gap: .5rem; }
+.guide-actions { display: flex; justify-content: flex-end; margin-top: 1.5rem; }
+
+/* ==========================================================================
    REDUCED MOTION
    ========================================================================== */
 @media (prefers-reduced-motion: reduce) {
@@ -612,6 +635,28 @@ main.view { padding-top: 1.5rem; padding-bottom: 3rem; }
 <main class="wrap view" id="app" tabindex="-1"></main>
 
 <div id="status" class="sr-only" role="status" aria-live="polite"></div>
+
+<dialog class="guide" id="guide" aria-labelledby="guide-title">
+  <h2 id="guide-title">Motion and UI exploration</h2>
+  <p class="guide-warning">
+    <strong>Educational use only.</strong>
+    This is a prototype built to study motion and interface design. It is not a real store: nothing is sold, no payments are processed, and no data is sent over the network. Prices are simulated.
+  </p>
+  <p class="small muted">Some people experience discomfort, dizziness or nausea from motion on screen. If that happens, turn on Reduce motion in your operating system settings. These animations will then be disabled.</p>
+  <h3>Things to try</h3>
+  <ol>
+    <li>Switch between Flat and Neumorphism in the header to compare design styles.</li>
+    <li>Use the sun and moon toggle to switch between light and dark themes.</li>
+    <li>Hover over a watch card to see the lift and photo zoom.</li>
+    <li>Add a watch to your cart to see the check mark and burst feedback.</li>
+    <li>Open the sort dropdown to see the spring-based menu and staggered rows.</li>
+    <li>Move across the style filter to see the morphing tooltip.</li>
+    <li>Go through checkout to see the step transitions and the confirmation animation.</li>
+  </ol>
+  <div class="guide-actions">
+    <button type="button" class="btn btn-primary" data-guide-close>Start exploring</button>
+  </div>
+</dialog>
 <footer class="wrap footer muted small">Prototype simulator. No real payments, no network requests. Prices in USD.</footer>
 
 <script>
@@ -1555,6 +1600,13 @@ main.view { padding-top: 1.5rem; padding-bottom: 3rem; }
   applyStyle(document.documentElement.dataset.style === 'neumorphic' ? 'neumorphic' : 'flat');
   updateBadge(false);
   render({ enter: true, focus: null });
+
+  /* Opened on every load on purpose. Nothing is saved, so it returns after each refresh. */
+  const guide = $('#guide');
+  guide.showModal();
+  guide.addEventListener('click', e => {
+    if (e.target === guide || e.target.closest('[data-guide-close]')) guide.close();
+  });
 })();
 </script>
 </body>
